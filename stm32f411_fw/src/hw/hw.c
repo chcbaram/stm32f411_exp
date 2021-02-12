@@ -13,7 +13,7 @@
 __attribute__((section(".version"))) firm_version_t firm_ver =
     {
         "V210211R2",
-        "Firmware"
+        "STM32F411_EXP_BD"
     };
 
 
@@ -34,6 +34,7 @@ void hwInit(void)
   i2cInit();
   i2sInit();
   eepromInit();
+  adcInit();
 
   if (sdInit() == true)
   {

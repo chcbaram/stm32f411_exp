@@ -30,6 +30,7 @@
 #include "i2s.h"
 #include "files.h"
 #include "eeprom.h"
+#include "adc.h"
 
 
 void hwInit(void);

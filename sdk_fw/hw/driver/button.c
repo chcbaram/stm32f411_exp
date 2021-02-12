@@ -10,6 +10,7 @@
 #include "cli.h"
 
 
+#ifdef _USE_HW_BUTTON
 
 
 typedef struct
@@ -104,3 +105,6 @@ void cliButton(cli_args_t *args)
     cliPrintf("button show\n");
   }
 }
+
+
+#endif
