@@ -17,8 +17,10 @@ void lcdMain(void);
 void apInit(void)
 {
   cliOpen(_DEF_UART1, 57600);
-
   cliAdd("boot", cliBoot);
+
+  uartOpen(_DEF_UART2, 57600);
+  uartOpen(_DEF_UART3, 57600);
 }
 
 void apMain(void)
@@ -33,6 +35,15 @@ void apMain(void)
     {
       pre_time = millis();
       ledToggle(_DEF_LED1);
+    }
+
+    if (uartAvailable(_DEF_UART2) > 0)
+    {
+      uartPrintf(_DEF_UART2, "UART2 Rx : 0x%X\n", uartRead(_DEF_UART2));
+    }
+    if (uartAvailable(_DEF_UART3) > 0)
+    {
+      uartPrintf(_DEF_UART3, "UART3 Rx : 0x%X\n", uartRead(_DEF_UART3));
     }
 
     cliMain();
