@@ -33,6 +33,7 @@ void hwInit(void)
   spiInit();
   i2cInit();
   i2sInit();
+  eepromInit();
 
   if (sdInit() == true)
   {

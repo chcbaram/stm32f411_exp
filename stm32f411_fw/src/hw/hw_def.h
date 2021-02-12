@@ -22,6 +22,7 @@
 #define _USE_HW_FILES
 #define _USE_HW_RTC
 #define _USE_HW_RESET
+#define _USE_HW_EEPROM
 
 
 #define _USE_HW_LED

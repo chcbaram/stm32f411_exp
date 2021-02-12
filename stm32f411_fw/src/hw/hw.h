@@ -29,6 +29,7 @@
 #include "i2c.h"
 #include "i2s.h"
 #include "files.h"
+#include "eeprom.h"
 
 
 void hwInit(void);
