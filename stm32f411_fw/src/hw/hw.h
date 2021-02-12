@@ -31,6 +31,7 @@
 #include "files.h"
 #include "eeprom.h"
 #include "adc.h"
+#include "esp.h"
 
 
 void hwInit(void);

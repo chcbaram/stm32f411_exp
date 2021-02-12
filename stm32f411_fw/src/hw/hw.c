@@ -45,4 +45,5 @@ void hwInit(void)
   mcp2515Init();
 
   usbBegin(USB_CDC_MODE);
+  espInit();
 }

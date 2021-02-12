@@ -20,7 +20,7 @@ void apInit(void)
   cliAdd("boot", cliBoot);
 
   uartOpen(_DEF_UART2, 57600);
-  uartOpen(_DEF_UART3, 57600);
+  uartOpen(_DEF_UART3, 115200);
 }
 
 void apMain(void)
@@ -39,11 +39,20 @@ void apMain(void)
 
     if (uartAvailable(_DEF_UART2) > 0)
     {
-      uartPrintf(_DEF_UART2, "UART2 Rx : 0x%X\n", uartRead(_DEF_UART2));
+      uint8_t rx_data;
+
+      rx_data = uartRead(_DEF_UART2);
+
+      if (rx_data == '1')
+      {
+        uartPrintf(_DEF_UART3, "AT\r\n");
+      }
     }
     if (uartAvailable(_DEF_UART3) > 0)
     {
-      uartPrintf(_DEF_UART3, "UART3 Rx : 0x%X\n", uartRead(_DEF_UART3));
+      uint8_t rx_data;
+      rx_data = uartRead(_DEF_UART3);
+      uartPrintf(_DEF_UART2, "%c", rx_data);
     }
 
     cliMain();
