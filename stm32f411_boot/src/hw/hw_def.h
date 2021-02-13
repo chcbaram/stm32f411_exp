@@ -46,8 +46,9 @@
 
 
 
-#define FLASH_ADDR_FW               0x8010000
-#define FLASH_ADDR_FW_VER           0x8010400
+#define FLASH_ADDR_TAG              0x8010000
+#define FLASH_ADDR_FW               0x8010400
+#define FLASH_ADDR_FW_VER           0x8010800
 
 #define FLASH_ADDR_START            0x8010000
 #define FLASH_ADDR_END              (FLASH_ADDR_START + (512-64)*1024)

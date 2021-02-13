@@ -11,7 +11,7 @@
 
 __attribute__((section(".version"))) firm_version_t boot_ver =
     {
-        "B210211R1",
+        "B210213R1",
         "Bootloader"
     };
 
