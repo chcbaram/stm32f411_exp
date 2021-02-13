@@ -14,14 +14,7 @@
 #ifdef _USE_HW_SD
 
 
-typedef enum
-{
-  SDCARD_IDLE,
-  SDCARD_CONNECTTING,
-  SDCARD_CONNECTED,
-  SDCARD_DISCONNECTED,
-  SDCARD_ERROR
-} SdState_t;
+
 
 
 static bool is_init = false;
@@ -29,7 +22,7 @@ static bool is_detected = false;
 static volatile bool is_rx_done = false;
 static volatile bool is_tx_done = false;
 static uint8_t is_try = 0;
-static SdState_t sd_state = SDCARD_IDLE;
+static sd_state_t sd_state = SDCARD_IDLE;
 
 
 SD_HandleTypeDef hsd;
@@ -133,8 +126,9 @@ bool sdIsDetected(void)
   return is_detected;
 }
 
-void sdUpdate(void)
+sd_state_t sdUpdate(void)
 {
+  sd_state_t ret_state = SDCARD_IDLE;
   static uint32_t pre_time;
 
 
@@ -156,8 +150,8 @@ void sdUpdate(void)
       else
       {
         is_init = false;
-        sd_state = SDCARD_DISCONNECTED;
-        logPrintf("SDCARD_DISCONNECTED\n");
+        sd_state  = SDCARD_DISCONNECTED;
+        ret_state = SDCARD_DISCONNECTED;
       }
       break;
 
@@ -166,8 +160,8 @@ void sdUpdate(void)
       {
         if (sdReInit())
         {
-          sd_state = SDCARD_CONNECTED;
-          logPrintf("SDCARD_CONNECTED\n");
+          sd_state  = SDCARD_CONNECTED;
+          ret_state = SDCARD_CONNECTED;
         }
         else
         {
@@ -200,6 +194,8 @@ void sdUpdate(void)
     case SDCARD_ERROR:
       break;
   }
+
+  return ret_state;
 }
 
 bool sdGetInfo(sd_info_t *p_info)

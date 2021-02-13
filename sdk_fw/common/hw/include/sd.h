@@ -13,6 +13,16 @@
 #ifdef _USE_HW_SD
 
 
+typedef enum
+{
+  SDCARD_IDLE,
+  SDCARD_CONNECTTING,
+  SDCARD_CONNECTED,
+  SDCARD_DISCONNECTED,
+  SDCARD_ERROR
+} sd_state_t;
+
+
 typedef struct
 {
   uint32_t card_type;                    /*!< Specifies the card Type                         */
@@ -27,16 +37,16 @@ typedef struct
 } sd_info_t;
 
 
-
 bool sdInit(void);
 bool sdReInit(void);
 bool sdDeInit(void);
-void sdUpdate(void);
 bool sdIsInit(void);
 bool sdIsDetected(void);
 bool sdGetInfo(sd_info_t *p_info);
 bool sdIsBusy(void);
 bool sdIsReady(uint32_t timeout);
+
+sd_state_t sdUpdate(void);
 
 bool sdReadBlocks(uint32_t block_addr, uint8_t *p_data, uint32_t num_of_blocks, uint32_t timeout_ms);
 bool sdWriteBlocks(uint32_t block_addr, uint8_t *p_data, uint32_t num_of_blocks, uint32_t timeout_ms);

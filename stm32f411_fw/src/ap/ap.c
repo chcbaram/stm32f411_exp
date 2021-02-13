@@ -26,6 +26,7 @@ void apInit(void)
 void apMain(void)
 {
   uint32_t pre_time;
+  sd_state_t sd_state;
 
 
   pre_time = millis();
@@ -58,7 +59,15 @@ void apMain(void)
     cliMain();
     lcdMain();
 
-    sdUpdate();
+    sd_state = sdUpdate();
+    if (sd_state == SDCARD_CONNECTED)
+    {
+      logPrintf("\nSDCARD_CONNECTED\n");
+    }
+    if (sd_state == SDCARD_DISCONNECTED)
+    {
+      logPrintf("\nSDCARD_DISCONNECTED\n");
+    }
   }
 }
 
