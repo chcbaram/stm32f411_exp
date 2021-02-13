@@ -57,6 +57,8 @@ void apMain(void)
 
     cliMain();
     lcdMain();
+
+    sdUpdate();
   }
 }
 

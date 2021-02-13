@@ -29,7 +29,9 @@ typedef struct
 
 
 bool sdInit(void);
+bool sdReInit(void);
 bool sdDeInit(void);
+void sdUpdate(void);
 bool sdIsInit(void);
 bool sdIsDetected(void);
 bool sdGetInfo(sd_info_t *p_info);

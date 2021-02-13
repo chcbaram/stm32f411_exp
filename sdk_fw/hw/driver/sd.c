@@ -13,10 +13,24 @@
 
 #ifdef _USE_HW_SD
 
+
+typedef enum
+{
+  SDCARD_IDLE,
+  SDCARD_CONNECTTING,
+  SDCARD_CONNECTED,
+  SDCARD_DISCONNECTED,
+  SDCARD_ERROR
+} SdState_t;
+
+
 static bool is_init = false;
 static bool is_detected = false;
 static volatile bool is_rx_done = false;
 static volatile bool is_tx_done = false;
+static uint8_t is_try = 0;
+static SdState_t sd_state = SDCARD_IDLE;
+
 
 SD_HandleTypeDef hsd;
 DMA_HandleTypeDef hdma_sdio_rx;
@@ -43,11 +57,7 @@ bool sdInit(void)
   hsd.Init.ClockDiv       = SDIO_TRANSFER_CLK_DIV;
 
 
-  is_detected = false;
-  if (gpioPinRead(_PIN_GPIO_SDCARD_DETECT) == true)
-  {
-    is_detected = true;
-  }
+  is_detected = sdIsDetected();
 
   if (is_detected == true)
   {
@@ -70,12 +80,31 @@ bool sdInit(void)
   return ret;
 }
 
+bool sdReInit(void)
+{
+  bool ret = false;
+
+  HAL_SD_DeInit(&hsd);
+  if (HAL_SD_Init(&hsd) == HAL_OK)
+  {
+    if (HAL_SD_ConfigWideBusOperation(&hsd, SDIO_BUS_WIDE_4B) == HAL_OK)
+    {
+      ret = true;
+    }
+  }
+
+  is_init = ret;
+
+  return ret;
+}
+
 bool sdDeInit(void)
 {
   bool ret = false;
 
   if (is_init == true)
   {
+    is_init = false;
     if (HAL_SD_DeInit(&hsd) == HAL_OK)
     {
       ret = true;
@@ -102,6 +131,75 @@ bool sdIsDetected(void)
   }
 
   return is_detected;
+}
+
+void sdUpdate(void)
+{
+  static uint32_t pre_time;
+
+
+  switch(sd_state)
+  {
+    case SDCARD_IDLE:
+      if (sdIsDetected() == true)
+      {
+        if (is_init)
+        {
+          sd_state = SDCARD_CONNECTED;
+        }
+        else
+        {
+          sd_state = SDCARD_CONNECTTING;
+          pre_time = millis();
+        }
+      }
+      else
+      {
+        is_init = false;
+        sd_state = SDCARD_DISCONNECTED;
+        logPrintf("SDCARD_DISCONNECTED\n");
+      }
+      break;
+
+    case SDCARD_CONNECTTING:
+      if (millis()-pre_time >= 100)
+      {
+        if (sdReInit())
+        {
+          sd_state = SDCARD_CONNECTED;
+          logPrintf("SDCARD_CONNECTED\n");
+        }
+        else
+        {
+          sd_state = SDCARD_IDLE;
+          is_try++;
+
+          if (is_try >= 3)
+          {
+            sd_state = SDCARD_ERROR;
+          }
+        }
+      }
+      break;
+
+    case SDCARD_CONNECTED:
+      if (sdIsDetected() != true)
+      {
+        is_try = 0;
+        sd_state = SDCARD_IDLE;
+      }
+      break;
+
+    case SDCARD_DISCONNECTED:
+      if (sdIsDetected() == true)
+      {
+        sd_state = SDCARD_IDLE;
+      }
+      break;
+
+    case SDCARD_ERROR:
+      break;
+  }
 }
 
 bool sdGetInfo(sd_info_t *p_info)
@@ -134,7 +232,6 @@ bool sdGetInfo(sd_info_t *p_info)
 bool sdIsBusy(void)
 {
   bool is_busy;
-
 
   if (HAL_SD_GetCardState(&hsd) == HAL_SD_CARD_TRANSFER )
   {
@@ -171,6 +268,9 @@ bool sdReadBlocks(uint32_t block_addr, uint8_t *p_data, uint32_t num_of_blocks, 
   uint32_t pre_time;
 
 
+  if (is_init == false) return false;
+
+
   is_rx_done = false;
   if(HAL_SD_ReadBlocks_DMA(&hsd, (uint8_t *)p_data, block_addr, num_of_blocks) == HAL_OK)
   {
@@ -202,6 +302,8 @@ bool sdWriteBlocks(uint32_t block_addr, uint8_t *p_data, uint32_t num_of_blocks,
   bool ret = false;
   uint32_t pre_time;
 
+  if (is_init == false) return false;
+
 
   is_tx_done = false;
   if(HAL_SD_WriteBlocks_DMA(&hsd, (uint8_t *)p_data, block_addr, num_of_blocks) == HAL_OK)
@@ -232,6 +334,8 @@ bool sdWriteBlocks(uint32_t block_addr, uint8_t *p_data, uint32_t num_of_blocks,
 bool sdEraseBlocks(uint32_t start_addr, uint32_t end_addr)
 {
   bool ret = false;
+
+  if (is_init == false) return false;
 
   if(HAL_SD_Erase(&hsd, start_addr, end_addr) == HAL_OK)
   {
