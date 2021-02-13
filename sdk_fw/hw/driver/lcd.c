@@ -21,6 +21,9 @@
 #include "lcd/ssd1306.h"
 #endif
 
+#ifdef _USE_HW_PWM
+#include "pwm.h"
+#endif
 
 #ifndef _swap_int16_t
 #define _swap_int16_t(a, b) { int16_t t = a; a = b; b = t; }
@@ -171,6 +174,9 @@ void lcdSetBackLight(uint8_t value)
     backlight_value = value;
   }
 
+#ifdef _USE_HW_PWM
+  pwmWrite(0, map(value, 0, 100, 0, 255));
+#else
   if (backlight_value > 0)
   {
     gpioPinWrite(_PIN_DEF_BL_CTL, _DEF_HIGH);
@@ -179,6 +185,7 @@ void lcdSetBackLight(uint8_t value)
   {
     gpioPinWrite(_PIN_DEF_BL_CTL, _DEF_LOW);
   }
+#endif
 }
 
 LCD_OPT_DEF uint32_t lcdReadPixel(uint16_t x_pos, uint16_t y_pos)
@@ -825,10 +832,21 @@ void cliLcd(cli_args_t *args)
 
     ret = true;
   }
+  if (args->argc == 2 && args->isStr(0, "bl") == true)
+  {
+    uint8_t bl_value;
+
+    bl_value = args->getData(1);
+
+    lcdSetBackLight(bl_value);
+
+    ret = true;
+  }
 
   if (ret != true)
   {
     cliPrintf("lcd test\n");
+    cliPrintf("lcd bl 0~100\n");
   }
 }
 #endif

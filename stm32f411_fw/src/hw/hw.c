@@ -55,6 +55,7 @@ void hwInit(void)
   i2sInit();
   eepromInit();
   adcInit();
+  pwmInit();
 
   if (sdInit() == true)
   {

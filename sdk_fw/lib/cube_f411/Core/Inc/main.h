@@ -73,8 +73,6 @@ void Error_Handler(void);
 #define LCD_CS_GPIO_Port GPIOB
 #define MCP2515_CS_Pin GPIO_PIN_15
 #define MCP2515_CS_GPIO_Port GPIOA
-#define LCD_BLK_Pin GPIO_PIN_9
-#define LCD_BLK_GPIO_Port GPIOB
 /* USER CODE BEGIN Private defines */
 
 /* USER CODE END Private defines */

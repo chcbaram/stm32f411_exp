@@ -32,6 +32,7 @@
 #include "eeprom.h"
 #include "adc.h"
 #include "esp.h"
+#include "pwm.h"
 
 
 void hwInit(void);

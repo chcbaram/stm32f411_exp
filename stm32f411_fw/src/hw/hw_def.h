@@ -83,6 +83,9 @@
 #define _USE_HW_ADC
 #define      HW_ADC_MAX_CH          1
 
+#define _USE_HW_PWM
+#define      HW_PWM_MAX_CH          1
+
 
 #define _PIN_GPIO_SDCARD_DETECT     0
 #define _PIN_GPIO_SPK_EN            6
