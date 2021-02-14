@@ -15,6 +15,9 @@
 #ifdef _USE_HW_MCP2515
 
 
+#define MCP2515_MAX_CH              HW_MCP2515_MAX_CH
+
+
 #define MCP_INST_RESET              0xC0
 #define MCP_INST_READ               0x03
 #define MCP_INST_READ_RXBUFFER(x)   (0x90+(x<<1))

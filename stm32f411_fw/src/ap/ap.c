@@ -95,55 +95,55 @@ void lcdMain(void)
 
 	  lcdSetFont(LCD_FONT_07x10);
 
-	  for (int ch=0; ch<HW_MCP2515_MAX_CH; ch++)
+	  for (int ch=0; ch<MCP2515_MAX_CH; ch++)
 	  {
-		mode = mcp2515GetMode(ch);
-		baud = mcp2515GetBaud(ch);
+      mode = mcp2515GetMode(ch);
+      baud = mcp2515GetBaud(ch);
 
-		x = 0;
-		y += 12;
-		switch(mode)
-		{
-		  case MCP_MODE_NORMAL:
-			lcdPrintf(x, y, white, "ch%d Mode : Normal", ch);
-			break;
-		  case MCP_MODE_SLEEP:
-			lcdPrintf(x, y, white, "ch%d Mode : Sleep", ch);
-			break;
-		  case MCP_MODE_LOOPBACK:
-			lcdPrintf(x, y, white, "ch%d Mode : Loopback", ch);
-			break;
-		  case MCP_MODE_LISTEN:
-			lcdPrintf(x, y, white, "ch%d Mode : Listen", ch);
-			break;
-		  case MCP_MODE_CONFIG:
-			lcdPrintf(x, y, white, "ch%d Mode : Config", ch);
-			break;
-		}
+      x = 0;
+      y += 12;
+      switch(mode)
+      {
+        case MCP_MODE_NORMAL:
+        lcdPrintf(x, y, white, "ch%d Mode : Normal", ch);
+        break;
+        case MCP_MODE_SLEEP:
+        lcdPrintf(x, y, white, "ch%d Mode : Sleep", ch);
+        break;
+        case MCP_MODE_LOOPBACK:
+        lcdPrintf(x, y, white, "ch%d Mode : Loopback", ch);
+        break;
+        case MCP_MODE_LISTEN:
+        lcdPrintf(x, y, white, "ch%d Mode : Listen", ch);
+        break;
+        case MCP_MODE_CONFIG:
+        lcdPrintf(x, y, white, "ch%d Mode : Config", ch);
+        break;
+      }
 
-		x = 0;
-		y += 12;
-		switch(baud)
-		{
-		  case MCP_BAUD_100K:
-			lcdPrintf(x, y, white, "    Baud : 100Kbps", ch);
-			break;
-		  case MCP_BAUD_125K:
-			lcdPrintf(x, y, white, "    Baud : 125Kbps", ch);
-			break;
-		  case MCP_BAUD_250K:
-			lcdPrintf(x, y, white, "    Baud : 250Kbps", ch);
-			break;
-		  case MCP_BAUD_500K:
-			lcdPrintf(x, y, white, "    Baud : 500Kbps", ch);
-			break;
-		  case MCP_BAUD_1000K:
-			lcdPrintf(x, y, white, "    Baud : 1Mbps", ch);
-			break;
-		  default:
-			lcdPrintf(x, y, white, "    Baud : unknown", ch);
-			break;
-		}
+      x = 0;
+      y += 12;
+      switch(baud)
+      {
+        case MCP_BAUD_100K:
+        lcdPrintf(x, y, white, "    Baud : 100Kbps", ch);
+        break;
+        case MCP_BAUD_125K:
+        lcdPrintf(x, y, white, "    Baud : 125Kbps", ch);
+        break;
+        case MCP_BAUD_250K:
+        lcdPrintf(x, y, white, "    Baud : 250Kbps", ch);
+        break;
+        case MCP_BAUD_500K:
+        lcdPrintf(x, y, white, "    Baud : 500Kbps", ch);
+        break;
+        case MCP_BAUD_1000K:
+        lcdPrintf(x, y, white, "    Baud : 1Mbps", ch);
+        break;
+        default:
+        lcdPrintf(x, y, white, "    Baud : unknown", ch);
+        break;
+      }
 	  }
 
 	  lcdRequestDraw();

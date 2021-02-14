@@ -64,12 +64,17 @@
 
 #define _DEF_CAN1             0
 #define _DEF_CAN2             1
+#define _DEF_CAN3             2
+#define _DEF_CAN4             3
+
+#define _DEF_CAN_100K         0
+#define _DEF_CAN_125K         1
+#define _DEF_CAN_250K         2
+#define _DEF_CAN_500K         3
+#define _DEF_CAN_1000K        4
 
 #define _DEF_CAN_STD          0
 #define _DEF_CAN_EXT          1
-
-#define _DEF_MCP2515_CH0      0
-#define _DEF_MCP2515_CH1      1
 
 
 

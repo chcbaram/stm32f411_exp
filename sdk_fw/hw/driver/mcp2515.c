@@ -1,5 +1,5 @@
 /*
- * mcp2515_ex.c
+ * mcp2515.c
  *
  *  Created on: 2020. 12. 30.
  *      Author: baram
@@ -84,11 +84,11 @@ void mcp2515csPinWrite(uint8_t ch, bool value)
   if ( ch >= HW_MCP2515_MAX_CH )
     return;
 
-  if ( ch==_DEF_MCP2515_CH0)
+  if ( ch==_DEF_CAN1)
   {
     gpioPinWrite(_PIN_DEF_MCP2515_CS_CH0, value);
   }
-  else if ( ch==_DEF_MCP2515_CH1)
+  else if ( ch==_DEF_CAN2)
   {
     gpioPinWrite(_PIN_DEF_MCP2515_CS_CH1, value);
   }
@@ -152,10 +152,10 @@ bool mcp2515Init(void)
     }
   }
 
-  mcp2515SetMode(_DEF_MCP2515_CH0, MCP_MODE_NORMAL);
-  mcp2515SetBaud(_DEF_MCP2515_CH0, MCP_BAUD_500K);
-  mcp2515SetMode(_DEF_MCP2515_CH1, MCP_MODE_NORMAL);
-  mcp2515SetBaud(_DEF_MCP2515_CH1, MCP_BAUD_100K);
+  mcp2515SetMode(_DEF_CAN1, MCP_MODE_NORMAL);
+  mcp2515SetBaud(_DEF_CAN1, MCP_BAUD_500K);
+  mcp2515SetMode(_DEF_CAN2, MCP_MODE_NORMAL);
+  mcp2515SetBaud(_DEF_CAN2, MCP_BAUD_100K);
 
 
 #ifdef _USE_HW_CLI
@@ -874,7 +874,7 @@ void cliMCP2515(cli_args_t *args)
       if (fl_all == true)
       {
         ch++;
-        if (ch >= HW_MCP2515_MAX_CH)
+        if (ch >= MCP2515_MAX_CH)
         {
           ch = 0;
         }
@@ -906,12 +906,12 @@ void cliMCP2515(cli_args_t *args)
 
   if (ret != true)
   {
-    cliPrintf("mcp2515 ch[0~%d] info\n", HW_MCP2515_MAX_CH-1);
-    cliPrintf("mcp2515 ch[0~%d] reg_info\n", HW_MCP2515_MAX_CH-1);
-    cliPrintf("mcp2515 ch[0~%d] read_reg addr length\n", HW_MCP2515_MAX_CH-1);
-    cliPrintf("mcp2515 ch[0~%d] set_baud 100k:125k:250k:500k:1000k\n", HW_MCP2515_MAX_CH-1);
-    cliPrintf("mcp2515 ch[0~%d] set_mode normal:loopback:listen:config\n", HW_MCP2515_MAX_CH-1);
-    cliPrintf("mcp2515 ch[0~%d] test\n", HW_MCP2515_MAX_CH-1);
+    cliPrintf("mcp2515 ch[0~%d] info\n", MCP2515_MAX_CH-1);
+    cliPrintf("mcp2515 ch[0~%d] reg_info\n", MCP2515_MAX_CH-1);
+    cliPrintf("mcp2515 ch[0~%d] read_reg addr length\n", MCP2515_MAX_CH-1);
+    cliPrintf("mcp2515 ch[0~%d] set_baud 100k:125k:250k:500k:1000k\n", MCP2515_MAX_CH-1);
+    cliPrintf("mcp2515 ch[0~%d] set_mode normal:loopback:listen:config\n", MCP2515_MAX_CH-1);
+    cliPrintf("mcp2515 ch[0~%d] test\n", MCP2515_MAX_CH-1);
     cliPrintf("mcp2515 all test\n");
     cliPrintf("mcp2515 reset\n");
   }
