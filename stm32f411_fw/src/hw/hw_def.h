@@ -18,13 +18,14 @@
 #define _USE_HW_SD
 #define _USE_HW_FATFS
 #define _USE_HW_FLASH
-#define _USE_HW_MCP2515
 #define _USE_HW_FILES
 #define _USE_HW_RTC
 #define _USE_HW_RESET
 #define _USE_HW_EEPROM
 #define _USE_HW_ESP
 
+#define _USE_HW_MCP2515
+#define      HW_MCP2515_MAX_CH      2
 
 #define _USE_HW_LED
 #define      HW_LED_MAX_CH          1

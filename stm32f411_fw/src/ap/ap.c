@@ -76,70 +76,77 @@ void lcdMain(void)
   static uint32_t pre_time;
   McpMode mode;
   McpBaud baud;
-  int16_t x;
-  int16_t y;
+  int16_t x = 0;
+	int16_t y = 6;
 
-  if (lcdIsInit() != true)
-  {
-    return;
-  }
+	if (lcdIsInit() != true)
+	{
+	  return;
+	}
 
+	if (millis()-pre_time >= (1000/30) && lcdDrawAvailable() == true)
+	{
+	  pre_time = millis();
 
-  if (millis()-pre_time >= (1000/30) && lcdDrawAvailable() == true)
-  {
-    pre_time = millis();
+	  lcdClearBuffer(black);
 
-    lcdClearBuffer(black);
+	  lcdSetFont(LCD_FONT_HAN);
+	  lcdPrintf(24,16*0, green, "[CAN 통신]");
 
-    lcdSetFont(LCD_FONT_HAN);
-    lcdPrintf(24,16*0, green, "[CAN 통신]");
+	  lcdSetFont(LCD_FONT_07x10);
 
-    lcdSetFont(LCD_FONT_07x10);
+	  for (int ch=0; ch<HW_MCP2515_MAX_CH; ch++)
+	  {
+		mode = mcp2515GetMode(ch);
+		baud = mcp2515GetBaud(ch);
 
-    mode = mcp2515GetMode();
-    baud = mcp2515GetBaud();
+		x = 0;
+		y += 12;
+		switch(mode)
+		{
+		  case MCP_MODE_NORMAL:
+			lcdPrintf(x, y, white, "ch%d Mode : Normal", ch);
+			break;
+		  case MCP_MODE_SLEEP:
+			lcdPrintf(x, y, white, "ch%d Mode : Sleep", ch);
+			break;
+		  case MCP_MODE_LOOPBACK:
+			lcdPrintf(x, y, white, "ch%d Mode : Loopback", ch);
+			break;
+		  case MCP_MODE_LISTEN:
+			lcdPrintf(x, y, white, "ch%d Mode : Listen", ch);
+			break;
+		  case MCP_MODE_CONFIG:
+			lcdPrintf(x, y, white, "ch%d Mode : Config", ch);
+			break;
+		}
 
-    x = 0;
-    y = 18 + 12*0;
-    switch(mode)
-    {
-      case MCP_MODE_NORMAL:
-        lcdPrintf(x, y, white, "Mode : Normal");
-        break;
-      case MCP_MODE_SLEEP:
-        lcdPrintf(x, y, white, "Mode : Sleep");
-        break;
-      case MCP_MODE_LOOPBACK:
-        lcdPrintf(x, y, white, "Mode : Loopback");
-        break;
-      case MCP_MODE_LISTEN:
-        lcdPrintf(x, y, white, "Mode : Listen");
-        break;
-      case MCP_MODE_CONFIG:
-        lcdPrintf(x, y, white, "Mode : Config");
-        break;
-    }
+		x = 0;
+		y += 12;
+		switch(baud)
+		{
+		  case MCP_BAUD_100K:
+			lcdPrintf(x, y, white, "    Baud : 100Kbps", ch);
+			break;
+		  case MCP_BAUD_125K:
+			lcdPrintf(x, y, white, "    Baud : 125Kbps", ch);
+			break;
+		  case MCP_BAUD_250K:
+			lcdPrintf(x, y, white, "    Baud : 250Kbps", ch);
+			break;
+		  case MCP_BAUD_500K:
+			lcdPrintf(x, y, white, "    Baud : 500Kbps", ch);
+			break;
+		  case MCP_BAUD_1000K:
+			lcdPrintf(x, y, white, "    Baud : 1Mbps", ch);
+			break;
+		  default:
+			lcdPrintf(x, y, white, "    Baud : unknown", ch);
+			break;
+		}
+	  }
 
-    x = 0;
-    y = 18 + 12*1;
-    switch(baud)
-    {
-      case MCP_BAUD_125K:
-        lcdPrintf(x, y, white, "Baud : 125Kbps");
-        break;
-      case MCP_BAUD_250K:
-        lcdPrintf(x, y, white, "Baud : 250Kbps");
-        break;
-      case MCP_BAUD_500K:
-        lcdPrintf(x, y, white, "Baud : 500Kbps");
-        break;
-      case MCP_BAUD_1000K:
-        lcdPrintf(x, y, white, "Baud : 1Mbps");
-        break;
-    }
-
-
-    lcdRequestDraw();
+	  lcdRequestDraw();
   }
 }
 

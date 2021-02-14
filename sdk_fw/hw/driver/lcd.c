@@ -25,6 +25,10 @@
 #include "pwm.h"
 #endif
 
+#ifdef _USE_HW_ADC
+#include "adc.h"
+#endif
+
 #ifndef _swap_int16_t
 #define _swap_int16_t(a, b) { int16_t t = a; a = b; b = t; }
 #endif
@@ -842,11 +846,25 @@ void cliLcd(cli_args_t *args)
 
     ret = true;
   }
+  if (args->argc == 2 && args->isStr(0, "bl") == true && args->isStr(1, "ad") == true)
+  {
+    uint8_t bl_value;
+
+    while(cliKeepLoop())
+    {
+      bl_value = (uint8_t)(adcRead(0) / 40.96);
+
+      lcdSetBackLight(bl_value);
+    }
+
+    ret = true;
+  }
 
   if (ret != true)
   {
     cliPrintf("lcd test\n");
     cliPrintf("lcd bl 0~100\n");
+    cliPrintf("lcd bl ad\n");
   }
 }
 #endif

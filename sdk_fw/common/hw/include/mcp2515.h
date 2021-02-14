@@ -1,5 +1,5 @@
 /*
- * mcp2515.h
+ * mcp2515_ex.h
  *
  *  Created on: 2020. 12. 30.
  *      Author: baram
@@ -79,6 +79,7 @@ typedef enum
 
 typedef enum
 {
+  MCP_BAUD_100K,
   MCP_BAUD_125K,
   MCP_BAUD_250K,
   MCP_BAUD_500K,
@@ -94,16 +95,17 @@ typedef struct
 } mcp_msg_t;
 
 
+void mcp2515csPinWrite(uint8_t ch, bool value);
 bool mcp2515Init(void);
-bool mcp2515Reset(void);
-bool mcp2515SetMode(McpMode mode);
-bool mcp2515SetBaud(McpBaud baud);
-bool mcp2515SetFilterMask(uint8_t index, const bool ext, const uint32_t data);
-bool mcp2515SetFilter(uint8_t index, const bool ext, const uint32_t data);
-McpMode mcp2515GetMode(void);
-McpBaud mcp2515GetBaud(void);
-uint8_t mcp2515ReadStatus(void);
-uint8_t mcp2515ReadErrorFlags(void);
+bool mcp2515Reset(uint8_t ch);
+bool mcp2515SetMode(uint8_t ch, McpMode mode);
+bool mcp2515SetBaud(uint8_t ch, McpBaud baud);
+bool mcp2515SetFilterMask(uint8_t ch, uint8_t index, const bool ext, const uint32_t data);
+bool mcp2515SetFilter(uint8_t ch, uint8_t index, const bool ext, const uint32_t data);
+McpMode mcp2515GetMode(uint8_t ch);
+McpBaud mcp2515GetBaud(uint8_t ch);
+uint8_t mcp2515ReadStatus(uint8_t ch);
+uint8_t mcp2515ReadErrorFlags(uint8_t ch);
 
 #endif
 
