@@ -76,7 +76,7 @@ bool buttonGetPressed(uint8_t ch)
 
 
 
-
+#ifdef _USE_HW_CLI
 
 void cliButton(cli_args_t *args)
 {
@@ -105,6 +105,8 @@ void cliButton(cli_args_t *args)
     cliPrintf("button show\n");
   }
 }
+#endif
+
 
 
 #endif
