@@ -180,7 +180,7 @@ uint32_t adcConvCurrent(uint8_t ch, uint32_t adc_value)
 
 uint8_t  adcGetRes(uint8_t ch)
 {
-  return 0;
+  return 12;
 }
 
 

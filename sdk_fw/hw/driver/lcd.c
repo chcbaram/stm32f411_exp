@@ -848,13 +848,15 @@ void cliLcd(cli_args_t *args)
   }
   if (args->argc == 2 && args->isStr(0, "bl") == true && args->isStr(1, "ad") == true)
   {
-    uint8_t bl_value;
+    uint32_t bl_value;
 
     while(cliKeepLoop())
     {
-      bl_value = (uint8_t)(adcRead(0) / 40.96);
-
+      bl_value = constrain(adcRead12(0), 0, 4000);
+      bl_value = (uint8_t)(map(bl_value, 0, 4000, 0, 100));
       lcdSetBackLight(bl_value);
+      cliPrintf("bl_value : %d\n", bl_value);
+      delay(100);
     }
 
     ret = true;
