@@ -420,7 +420,7 @@ static int8_t CDC_Receive_FS(uint8_t* Buf, uint32_t *Len)
       if (i == 13)
       {
         // Run Bootloader
-        resetToBoot(100);
+        resetToBoot(10);
       }
     }
   }

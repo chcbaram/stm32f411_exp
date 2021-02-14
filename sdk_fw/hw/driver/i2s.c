@@ -446,6 +446,24 @@ static void lcdUpdate(i2s_cli_t *p_args)
   }
 }
 
+uint32_t findID3Offset(uint8_t *readPtr)
+{
+  char header[10];
+  memcpy(header, readPtr, 10);
+  //http://id3.org/id3v2.3.0#ID3v2_header
+  if(header[0] == 0x49 && header[1] == 0x44 && header[2] == 0x33 && header[3] < 0xFF)
+  {
+    //this is a tag
+    uint32_t sz = ((uint32_t)header[6] << 23) | ((uint32_t)header[7] << 15) | ((uint32_t)header[8] << 7) | header[9];
+    return sz;
+  }
+  else
+  {
+    //this is not a tag
+    return 0;
+  }
+}
+
 void cliI2S(cli_args_t *args)
 {
   bool ret = false;
@@ -604,6 +622,7 @@ void cliI2S(cli_args_t *args)
       //int offset;
       int err;
       int n_read;
+      uint32_t id3_tag;
 
       //fread( buf, 4096, 1, fp );
 
@@ -614,6 +633,33 @@ void cliI2S(cli_args_t *args)
       i2s_args.bytes_left += n_read;
       i2s_args.read_ptr = i2s_args.read_buf;
 
+      id3_tag = findID3Offset(i2s_args.read_ptr);
+
+      if (id3_tag > 0)
+      {
+        cliPrintf("ID3 : %d\n\n", id3_tag);
+
+        uint32_t id3_tag_read;
+
+        while(id3_tag)
+        {
+          id3_tag_read = i2s_args.bytes_left;
+          if (id3_tag_read > id3_tag)
+          {
+            id3_tag_read = id3_tag;
+          }
+
+          i2s_args.bytes_left -= id3_tag_read;
+          i2s_args.read_ptr += id3_tag_read;
+
+          n_read = fillReadBuffer(i2s_args.read_buf, i2s_args.read_ptr, READBUF_SIZE, i2s_args.bytes_left, fp);
+          i2s_args.bytes_left += n_read;
+          i2s_args.read_ptr = i2s_args.read_buf;
+
+          id3_tag -= id3_tag_read;
+        }
+      }
+
       n_read = MP3FindSyncWord(i2s_args.read_ptr, READBUF_SIZE);
       cliPrintf("Offset: %d\n", n_read);
 
@@ -623,6 +669,7 @@ void cliI2S(cli_args_t *args)
       n_read = fillReadBuffer(i2s_args.read_buf, i2s_args.read_ptr, READBUF_SIZE, i2s_args.bytes_left, fp);
       i2s_args.bytes_left += n_read;
       i2s_args.read_ptr = i2s_args.read_buf;
+
 
 
       err = MP3GetNextFrameInfo(h_dec, &frameInfo, i2s_args.read_ptr);
@@ -670,6 +717,7 @@ void cliI2S(cli_args_t *args)
 
           if (err)
           {
+            cliPrintf("err %d\n", err);
             // sometimes we have a bad frame, lets just nudge forward one byte
             if (err == ERR_MP3_INVALID_FRAMEHEADER)
             {
