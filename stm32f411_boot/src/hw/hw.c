@@ -23,11 +23,9 @@ void hwInit(void)
 
   rtcInit();
   resetInit();
-  cliInit();
   ledInit();
   usbInit();
   uartInit();
   buttonInit();
   flashInit();
-  ymodemInit();
 }
