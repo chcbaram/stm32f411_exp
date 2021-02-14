@@ -57,10 +57,8 @@ void hwInit(void)
   adcInit();
   pwmInit();
 
-  if (sdInit() == true)
-  {
-    fatfsInit();
-  }
+  sdInit();
+  fatfsInit();
 
   lcdInit();
   mcp2515Init();
