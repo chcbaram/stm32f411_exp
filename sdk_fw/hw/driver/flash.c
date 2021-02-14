@@ -108,15 +108,23 @@ bool flashWrite(uint32_t addr, uint8_t *p_data, uint32_t length)
   HAL_StatusTypeDef status;
 
 
+  if (addr%4 != 0)
+  {
+    return false;
+  }
+
   HAL_FLASH_Unlock();
 
-  for (int i=0; i<length; i+=1)
+  for (int i=0; i<length; i+=4)
   {
-    uint16_t data;
+    uint32_t data;
 
     data  = p_data[i+0] << 0;
+    data |= p_data[i+1] << 8;
+    data |= p_data[i+2] <<16;
+    data |= p_data[i+3] <<24;
 
-    status = HAL_FLASH_Program(FLASH_TYPEPROGRAM_BYTE, addr + i, (uint64_t)data);
+    status = HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, addr + i, (uint64_t)data);
     if (status != HAL_OK)
     {
       ret = false;
