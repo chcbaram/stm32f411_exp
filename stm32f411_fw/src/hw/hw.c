@@ -32,7 +32,7 @@ __attribute__((section(".tag"))) firm_tag_t firm_tag =
 
 __attribute__((section(".version"))) firm_version_t firm_ver =
     {
-        "V210211R2",
+        "V210214R1",
         "STM32F411_EXP_BD"
     };
 
