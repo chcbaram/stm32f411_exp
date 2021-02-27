@@ -54,6 +54,7 @@
 #define      HW_SPI_MAX_CH          2
 
 #define _USE_HW_LCD
+#define      HW_LCD_LVGL
 #define      HW_LCD_MODEL           0
 #if HW_LCD_MODEL == 0
 #define _USE_HW_ST7735

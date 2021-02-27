@@ -9,7 +9,8 @@
 #include "ap.h"
 
 
-
+LCD_IMAGE_DEF(img_logo);
+LCD_IMAGE_DEF(img_logo2);
 
 void cliBoot(cli_args_t *args);
 void lcdMain(void);
@@ -74,10 +75,6 @@ void apMain(void)
 void lcdMain(void)
 {
   static uint32_t pre_time;
-  McpMode mode;
-  McpBaud baud;
-  int16_t x = 0;
-	int16_t y = 6;
 
 	if (lcdIsInit() != true)
 	{
@@ -89,6 +86,29 @@ void lcdMain(void)
 	  pre_time = millis();
 
 	  lcdClearBuffer(black);
+
+#if 1
+	  int16_t x1 = 0;
+	  int16_t x2 = 0;
+	  int16_t y = 0;
+	  int16_t x_time;
+
+
+	  x_time = millis()/20;
+	  x1 = x_time;
+	  x1 %= (LCD_WIDTH-img_logo.header.w);;
+
+    x2 = x_time;
+    x2 %= (LCD_WIDTH-img_logo.header.w);
+	  x2 = LCD_WIDTH - img_logo.header.w - x2;
+
+    lcdDrawImage(x1, y, &img_logo);
+    lcdDrawImage(x2, y, &img_logo2);
+#else
+    McpMode mode;
+    McpBaud baud;
+    int16_t x = 0;
+    int16_t y = 6;
 
 	  lcdSetFont(LCD_FONT_HAN);
 	  lcdPrintf(24,16*0, green, "[CAN 통신]");
@@ -145,6 +165,7 @@ void lcdMain(void)
         break;
       }
 	  }
+#endif
 
 	  lcdRequestDraw();
   }

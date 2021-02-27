@@ -199,6 +199,9 @@ LCD_OPT_DEF uint32_t lcdReadPixel(uint16_t x_pos, uint16_t y_pos)
 
 LCD_OPT_DEF void lcdDrawPixel(uint16_t x_pos, uint16_t y_pos, uint32_t rgb_code)
 {
+  if (x_pos < 0 || x_pos >= LCD_WIDTH) return;
+  if (y_pos < 0 || y_pos >= LCD_HEIGHT) return;
+
   p_draw_frame_buf[y_pos * LCD_WIDTH + x_pos] = rgb_code;
 }
 
@@ -800,6 +803,32 @@ LcdFont lcdGetFont(void)
 {
   return lcd_font;
 }
+
+#ifdef HW_LCD_LVGL
+void lcdDrawImage(int16_t x, int16_t y, lcd_img_t *p_img)
+{
+  int16_t w;
+  int16_t h;
+  uint16_t *p_data;
+  uint16_t pixel;
+
+  w = p_img->header.w;
+  h = p_img->header.h;
+  p_data = (uint16_t *)p_img->data;
+
+  for (int yi=0; yi<h; yi++)
+  {
+    for (int xi=0; xi<w; xi++)
+    {
+      pixel = p_data[w*yi + xi];
+      if (pixel != green)
+      {
+        lcdDrawPixel(x+xi, y+yi, pixel);
+      }
+    }
+  }
+}
+#endif
 
 #ifdef _USE_HW_CLI
 void cliLcd(cli_args_t *args)

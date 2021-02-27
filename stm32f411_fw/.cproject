@@ -122,7 +122,7 @@
 						</toolChain>
 					</folderInfo>
 					<sourceEntries>
-						<entry excluding="src/lib/FatFs/src/option/ccsbcs.c|src/lib/FatFs/src/option/cc950.c|src/lib/FatFs/src/option/cc949.c|src/lib/FatFs/src/option/cc936.c|src/lib/FatFs/src/option/cc932.c|src/lib/FatFs/src/drivers|src/lib/cube_f411/Core" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
+						<entry excluding="src/lib/lvgl/src/lv_widgets|src/lib/lvgl/src/lv_themes|src/lib/lvgl/src/lv_misc|src/lib/lvgl/src/lv_hal|src/lib/lvgl/src/lv_gpu|src/lib/lvgl/src/lv_font|src/lib/lvgl/src/lv_draw|src/lib/lvgl/src/lv_core|src/lib/FatFs/src/option/ccsbcs.c|src/lib/FatFs/src/option/cc950.c|src/lib/FatFs/src/option/cc949.c|src/lib/FatFs/src/option/cc936.c|src/lib/FatFs/src/option/cc932.c|src/lib/FatFs/src/drivers|src/lib/cube_f411/Core" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
 					</sourceEntries>
 				</configuration>
 			</storageModule>
@@ -195,7 +195,7 @@
 						</toolChain>
 					</folderInfo>
 					<sourceEntries>
-						<entry excluding="src/lib/FatFs/src/option/ccsbcs.c|src/lib/FatFs/src/option/cc950.c|src/lib/FatFs/src/option/cc949.c|src/lib/FatFs/src/option/cc936.c|src/lib/FatFs/src/option/cc932.c|src/lib/FatFs/src/drivers|src/lib/cube_f411/Core" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
+						<entry excluding="src/lib/lvgl/src/lv_widgets|src/lib/lvgl/src/lv_themes|src/lib/lvgl/src/lv_misc|src/lib/lvgl/src/lv_hal|src/lib/lvgl/src/lv_gpu|src/lib/lvgl/src/lv_font|src/lib/lvgl/src/lv_draw|src/lib/lvgl/src/lv_core|src/lib/FatFs/src/option/ccsbcs.c|src/lib/FatFs/src/option/cc950.c|src/lib/FatFs/src/option/cc949.c|src/lib/FatFs/src/option/cc936.c|src/lib/FatFs/src/option/cc932.c|src/lib/FatFs/src/drivers|src/lib/cube_f411/Core" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
 					</sourceEntries>
 				</configuration>
 			</storageModule>

@@ -14,6 +14,10 @@
 
 #ifdef _USE_HW_LCD
 
+#ifdef HW_LCD_LVGL
+#include "lvgl/lvgl.h"
+#endif
+
 #define LCD_WIDTH         HW_LCD_WIDTH
 #define LCD_HEIGHT        HW_LCD_HEIGHT
 
@@ -70,6 +74,9 @@ typedef struct lcd_driver_t_
 } lcd_driver_t;
 
 
+#ifdef HW_LCD_LVGL
+#define LCD_IMAGE_DEF(var_name) extern lcd_img_t var_name;
+#endif
 
 bool lcdInit(void);
 bool lcdIsInit(void);
@@ -119,6 +126,9 @@ void lcdPrintf(int x, int y, uint16_t color,  const char *fmt, ...);
 void lcdSetFont(LcdFont font);
 LcdFont lcdGetFont(void);
 
+#ifdef HW_LCD_LVGL
+void lcdDrawImage(int16_t x, int16_t y, lcd_img_t *p_img);
+#endif
 
 #endif /* _USE_HW_LCD */
 
