@@ -91,10 +91,11 @@ void lcdMain(void)
 	  int16_t x1 = 0;
 	  int16_t x2 = 0;
 	  int16_t y = 0;
-	  int16_t x_time;
+	  static int16_t x_time = 0;
 
 
-	  x_time = millis()/20;
+	  x_time += 2;
+
 	  x1 = x_time;
 	  x1 %= (LCD_WIDTH-img_logo.header.w);;
 
