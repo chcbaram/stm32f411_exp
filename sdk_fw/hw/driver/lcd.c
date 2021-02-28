@@ -923,7 +923,10 @@ void lcdPrintfResize(int x, int y, uint16_t color,  float ratio_h, const char *f
   len = vsnprintf(print_buffer, 255, fmt, arg);
   va_end (arg);
 
-
+  if (ratio_h > LCD_FONT_RESIZE_WIDTH)
+  {
+    ratio_h = LCD_FONT_RESIZE_WIDTH;
+  }
   ratio = ratio_h / 16;
 
   x = 0;
