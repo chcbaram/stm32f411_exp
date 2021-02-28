@@ -14,6 +14,8 @@
 #include "gpio.h"
 #include "hangul/han.h"
 #include "lcd/lcd_fonts.h"
+#include "resize.h"
+
 #ifdef _USE_HW_ST7735
 #include "lcd/st7735.h"
 #endif
@@ -35,6 +37,7 @@
 
 
 
+#define LCD_FONT_RESIZE_WIDTH  64
 
 #define MAKECOL(r, g, b) ( ((r)<<11) | ((g)<<5) | (b))
 
@@ -69,11 +72,14 @@ static volatile uint32_t fps_count = 0;
 
 static volatile uint32_t draw_fps = 30;
 static volatile uint32_t draw_frame_time = 0;
+static LcdResizeMode lcd_resize_mode = LCD_RESIZE_NEAREST;
 
 
 static uint16_t *p_draw_frame_buf = NULL;
 static uint16_t __attribute__((aligned(64))) frame_buffer[1][HW_LCD_WIDTH * HW_LCD_HEIGHT];
 
+static uint16_t __attribute__((aligned(64))) font_src_buffer[16 * 16];
+static uint16_t __attribute__((aligned(64))) font_dst_buffer[LCD_FONT_RESIZE_WIDTH * LCD_FONT_RESIZE_WIDTH];
 
 static lcd_font_t *font_tbl[LCD_FONT_MAX] = { &font_07x10, &font_11x18, &font_16x26, &font_hangul};
 
@@ -802,6 +808,200 @@ void lcdSetFont(LcdFont font)
 LcdFont lcdGetFont(void)
 {
   return lcd_font;
+}
+
+LCD_OPT_DEF void lcdDrawPixelBuffer(uint16_t x_pos, uint16_t y_pos, uint32_t rgb_code)
+{
+  font_src_buffer[y_pos * 16 + x_pos] = rgb_code;
+}
+
+void disHanFontBuffer(int x, int y, han_font_t *FontPtr, uint16_t textcolor)
+{
+  uint16_t    i, j, Loop;
+  uint16_t  FontSize = FontPtr->Size_Char;
+  uint16_t index_x;
+
+  if (FontSize > 2)
+  {
+    FontSize = 2;
+  }
+
+  if (textcolor == 0)
+  {
+    textcolor = 1;
+  }
+  for ( i = 0 ; i < 16 ; i++ )        // 16 Lines per Font/Char
+  {
+    index_x = 0;
+    for ( j = 0 ; j < FontSize ; j++ )      // 16 x 16 (2 Bytes)
+    {
+      uint8_t font_data;
+
+      font_data = FontPtr->FontBuffer[i*FontSize +j];
+
+      for( Loop=0; Loop<8; Loop++ )
+      {
+        if(font_data & ((uint8_t)0x80>>Loop))
+        {
+          lcdDrawPixelBuffer(index_x, i, textcolor);
+        }
+        else
+        {
+          lcdDrawPixelBuffer(index_x, i, 0);
+        }
+        index_x++;
+      }
+    }
+  }
+}
+
+LCD_OPT_DEF uint16_t lcdGetColorMix(uint16_t c1_, uint16_t c2_, uint8_t mix)
+{
+  uint16_t r, g, b;
+  uint16_t ret;
+  uint16_t c1;
+  uint16_t c2;
+
+#if 0
+  c1 = ((c1_>>8) & 0x00FF) | ((c1_<<8) & 0xFF00);
+  c2 = ((c2_>>8) & 0x00FF) | ((c2_<<8) & 0xFF00);
+#else
+  c1 = c1_;
+  c2 = c2_;
+#endif
+  r = ((uint16_t)((uint16_t) GETR(c1) * mix + GETR(c2) * (255 - mix)) >> 8);
+  g = ((uint16_t)((uint16_t) GETG(c1) * mix + GETG(c2) * (255 - mix)) >> 8);
+  b = ((uint16_t)((uint16_t) GETB(c1) * mix + GETB(c2) * (255 - mix)) >> 8);
+
+  ret = MAKECOL(r, g, b);
+
+
+
+  //return ((ret>>8) & 0xFF) | ((ret<<8) & 0xFF00);;
+  return ret;
+}
+
+LCD_OPT_DEF void lcdDrawPixelMix(uint16_t x_pos, uint16_t y_pos, uint32_t rgb_code, uint8_t mix)
+{
+  uint16_t color1, color2;
+
+  if (x_pos < 0 || x_pos >= LCD_WIDTH) return;
+  if (y_pos < 0 || y_pos >= LCD_HEIGHT) return;
+
+  color1 = p_draw_frame_buf[y_pos * LCD_WIDTH + x_pos];
+  color2 = rgb_code;
+
+  p_draw_frame_buf[y_pos * LCD_WIDTH + x_pos] = lcdGetColorMix(color1, color2, 255-mix);
+}
+
+void lcdPrintfResize(int x, int y, uint16_t color,  float ratio_h, const char *fmt, ...)
+{
+  va_list arg;
+  va_start (arg, fmt);
+  int32_t len;
+  char print_buffer[256];
+  int Size_Char;
+  int i;
+  int x_Pre = x;
+  int y_Pre = y;
+  han_font_t FontBuf;
+  uint8_t font_width;
+  resize_image_t r_src, r_dst;
+  uint16_t pixel;
+  int16_t x_pos;
+  int16_t y_pos;
+  float ratio;
+
+  r_src.x = 0;
+  r_src.y = 0;
+  r_src.w = 0;
+  r_src.h = 16;
+  r_src.stride = 16;
+  r_src.p_data = font_src_buffer;
+
+
+  len = vsnprintf(print_buffer, 255, fmt, arg);
+  va_end (arg);
+
+
+  ratio = ratio_h / 16;
+
+  x = 0;
+  y = 0;
+  for( i=0; i<len; i+=Size_Char )
+  {
+    hanFontLoad( &print_buffer[i], &FontBuf );
+
+
+    disHanFontBuffer(x, y, &FontBuf, 0xFF);
+
+    x_pos = x_Pre + x * ratio;
+    y_pos = y_Pre + y * ratio;
+
+    Size_Char = FontBuf.Size_Char;
+    if (Size_Char >= 2)
+    {
+      font_width = 16;
+      x += 2*8;
+    }
+    else
+    {
+      font_width = 8;
+      x += 1*8;
+    }
+
+    r_src.w = font_width;
+
+    //if ((x+font_width) > HW_LCD_WIDTH)
+    if ((x_pos + font_width*ratio) >= HW_LCD_WIDTH)
+    {
+      x  = x_Pre;
+      y += 16;
+
+      x_pos = x_Pre + x * ratio;
+      y_pos = y_Pre + y * ratio;
+    }
+
+    r_dst.x = 0;
+    r_dst.y = 0;
+    r_dst.w = r_src.w * ratio;
+    r_dst.h = r_src.h * ratio;
+    r_dst.stride = LCD_FONT_RESIZE_WIDTH;
+    r_dst.p_data = font_dst_buffer;
+
+    if (r_dst.w == 0) r_dst.w = 1;
+    if (r_dst.h == 0) r_dst.h = 1;
+
+    if (lcd_resize_mode == LCD_RESIZE_BILINEAR)
+    {
+      resizeImageFastGray(&r_src, &r_dst);
+    }
+    else
+    {
+      resizeImageNearest(&r_src, &r_dst);
+    }
+
+
+    for (int i_y=0; i_y<r_dst.h; i_y++)
+    {
+      for (int i_x=0; i_x<r_dst.w; i_x++)
+      {
+        pixel = font_dst_buffer[(i_y+r_dst.y)*LCD_FONT_RESIZE_WIDTH + i_x];
+        if (pixel > 0)
+        {
+          lcdDrawPixelMix(x_pos+i_x, y_pos+i_y, color, pixel);
+        }
+      }
+    }
+
+
+    if( FontBuf.Code_Type == PHAN_END_CODE ) break;
+  }
+}
+
+void lcdSetResizeMode(LcdResizeMode mode)
+{
+  lcd_resize_mode = mode;
 }
 
 #ifdef HW_LCD_LVGL

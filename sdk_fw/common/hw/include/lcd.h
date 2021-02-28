@@ -59,6 +59,23 @@ typedef enum
 } LcdFont;
 
 
+typedef enum
+{
+  LCD_ALIGN_H_LEFT    = (1<<0),
+  LCD_ALIGN_H_CENTER  = (1<<1),
+  LCD_ALIGN_H_RIGHT   = (1<<2),
+  LCD_ALIGN_V_TOP     = (1<<3),
+  LCD_ALIGN_V_CENTER  = (1<<4),
+  LCD_ALIGN_V_BOTTOM  = (1<<5),
+} LcdStringAlign;
+
+typedef enum
+{
+  LCD_RESIZE_NEAREST,
+  LCD_RESIZE_BILINEAR
+} LcdResizeMode;
+
+
 typedef struct lcd_driver_t_ lcd_driver_t;
 
 typedef struct lcd_driver_t_
@@ -125,6 +142,8 @@ void lcdDrawString(int x, int y, uint16_t color, const char *str);
 void lcdPrintf(int x, int y, uint16_t color,  const char *fmt, ...);
 void lcdSetFont(LcdFont font);
 LcdFont lcdGetFont(void);
+void lcdPrintfResize(int x, int y, uint16_t color,  float ratio_h, const char *fmt, ...);
+void lcdSetResizeMode(LcdResizeMode mode);
 
 #ifdef HW_LCD_LVGL
 void lcdDrawImage(int16_t x, int16_t y, lcd_img_t *p_img);

@@ -90,21 +90,47 @@ void lcdMain(void)
 #if 1
 	  int16_t x1 = 0;
 	  int16_t x2 = 0;
-	  int16_t y = 0;
+
 	  static int16_t x_time = 0;
+	  static float font_size = 1;
+	  static uint8_t mode = 0;
 
+	  if (buttonGetPressed(_DEF_BUTTON1))
+	  {
+	    mode = (mode + 1)%3;
+	    delay(200);
+	  }
+	  if (mode == 0)
+	  {
+      x_time += 2;
 
-	  x_time += 2;
+      x1 = x_time;
+      x1 %= (LCD_WIDTH-img_logo.header.w);;
 
-	  x1 = x_time;
-	  x1 %= (LCD_WIDTH-img_logo.header.w);;
+      x2 = x_time;
+      x2 %= (LCD_WIDTH-img_logo.header.w);
+      x2 = LCD_WIDTH - img_logo.header.w - x2;
 
-    x2 = x_time;
-    x2 %= (LCD_WIDTH-img_logo.header.w);
-	  x2 = LCD_WIDTH - img_logo.header.w - x2;
+      lcdDrawImage(x1, 0, &img_logo);
+      lcdDrawImage(x2, 0, &img_logo2);
+	  }
 
-    lcdDrawImage(x1, y, &img_logo);
-    lcdDrawImage(x2, y, &img_logo2);
+	  if (mode == 1)
+	  {
+      lcdPrintfResize(0, 0, green, font_size, "폰트시험");
+      font_size += 1;
+      if (font_size >= 60)
+      {
+        font_size = 1;
+      }
+	  }
+
+    if (mode == 2)
+    {
+      lcdPrintfResize(0, 0, green, 16, "폰트시험");
+      lcdPrintfResize(0,16, green, 24, "폰트시험");
+      lcdPrintfResize(0,40, green, 32, "폰트시험");
+    }
 #else
     McpMode mode;
     McpBaud baud;
