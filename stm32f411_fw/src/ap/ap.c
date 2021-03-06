@@ -17,47 +17,98 @@ void lcdMain(void);
 
 void apInit(void)
 {
-  cliOpen(_DEF_UART1, 57600);
+  cliOpen(_DEF_UART1, 57600);   // USB
   cliAdd("boot", cliBoot);
 
-  uartOpen(_DEF_UART2, 57600);
-  uartOpen(_DEF_UART3, 115200);
+  uartOpen(_DEF_UART2, 57600);  // XL-330
+  uartOpen(_DEF_UART3, 115200); // ESP8266
 }
 
 void apMain(void)
 {
   uint32_t pre_time;
   sd_state_t sd_state;
+  uint8_t  buf[128];
+  uint16_t buf_len;
+  uint32_t baud;
 
+  baud = uartGetBaud(_DEF_UART1);
 
   pre_time = millis();
   while(1)
   {
-    if (millis()-pre_time >= 500)
+    if (millis()-pre_time >= 1500)
     {
       pre_time = millis();
       ledToggle(_DEF_LED1);
+
+      buf[0] = 0xFF;
+      buf[1] = 0xFF;
+      buf[2] = 0xFD;
+      buf[3] = 0x00;
+      buf[4] = 0x01;
+      buf[5] = 0x03;
+      buf[6] = 0x00;
+      buf[7] = 0x01;
+      buf[8] = 0x19;
+      buf[9] = 0x4E;
+
+      logPrintf("\n");
+      uartWrite(_DEF_UART2, &buf[0], 10);
     }
+
+#if 1
 
     if (uartAvailable(_DEF_UART2) > 0)
     {
-      uint8_t rx_data;
-
-      rx_data = uartRead(_DEF_UART2);
-
-      if (rx_data == '1')
-      {
-        uartPrintf(_DEF_UART3, "AT\r\n");
-      }
+      logPrintf("rx : 0x%X\n", uartRead(_DEF_UART2));
     }
-    if (uartAvailable(_DEF_UART3) > 0)
+
+
+#else
+
+    if (baud != uartGetBaud(_DEF_UART1))
     {
-      uint8_t rx_data;
-      rx_data = uartRead(_DEF_UART3);
-      uartPrintf(_DEF_UART2, "%c", rx_data);
+      baud = uartGetBaud(_DEF_UART1);
+      uartOpen(_DEF_UART2, baud);
     }
 
-    cliMain();
+
+    // USB -> XL-330
+    buf_len = uartAvailable(_DEF_UART1);
+    if (buf_len > 0)
+    {
+      if (buf_len > 128)
+      {
+        buf_len = 128;
+      }
+      for (int i=0; i<buf_len; i++)
+      {
+        buf[i] = uartRead(_DEF_UART1);
+      }
+
+      uartWrite(_DEF_UART2, &buf[0], buf_len);
+    }
+
+    // XL-330 -> USB
+    buf_len = uartAvailable(_DEF_UART2);
+    if (buf_len > 0)
+    {
+      if (buf_len > 128)
+      {
+        buf_len = 128;
+      }
+      for (int i=0; i<buf_len; i++)
+      {
+        buf[i] = uartRead(_DEF_UART2);
+      }
+
+      uartWrite(_DEF_UART1, &buf[0], buf_len);
+    }
+#endif
+
+
+    //cliMain();
     lcdMain();
 
     sd_state = sdUpdate();

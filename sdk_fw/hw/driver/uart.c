@@ -81,7 +81,7 @@ bool uartOpen(uint8_t ch, uint32_t baud)
       huart1.Init.Parity      = UART_PARITY_NONE;
       huart1.Init.Mode        = UART_MODE_TX_RX;
       huart1.Init.HwFlowCtl   = UART_HWCONTROL_NONE;
-      huart1.Init.OverSampling= UART_OVERSAMPLING_16;
+      huart1.Init.OverSampling= UART_OVERSAMPLING_8;
 
       HAL_UART_DeInit(&huart1);
 
@@ -89,7 +89,7 @@ bool uartOpen(uint8_t ch, uint32_t baud)
 
       __HAL_RCC_DMA1_CLK_ENABLE();
 
-      if (HAL_UART_Init(&huart1) != HAL_OK)
+      if (HAL_HalfDuplex_Init(&huart1) != HAL_OK)
       {
         ret = false;
       }
@@ -213,6 +213,14 @@ uint32_t uartWrite(uint8_t ch, uint8_t *p_data, uint32_t length)
 
 #if UART_MAX_CH > 1
     case _DEF_UART2:
+      HAL_HalfDuplex_EnableTransmitter(uart_tbl[ch].p_huart);
+      if (HAL_UART_Transmit(uart_tbl[ch].p_huart, p_data, length, 100) == HAL_OK)
+      {
+        ret = length;
+      }
+      HAL_HalfDuplex_EnableReceiver(uart_tbl[ch].p_huart);
+      break;
+
     case _DEF_UART3:
       if (HAL_UART_Transmit(uart_tbl[ch].p_huart, p_data, length, 100) == HAL_OK)
       {
@@ -302,22 +310,13 @@ void HAL_UART_MspInit(UART_HandleTypeDef* uartHandle)
     /* USART1 clock enable */
     __HAL_RCC_USART1_CLK_ENABLE();
 
-    __HAL_RCC_GPIOA_CLK_ENABLE();
     __HAL_RCC_GPIOB_CLK_ENABLE();
     /**USART1 GPIO Configuration
-    PA10     ------> USART1_RX
     PB6     ------> USART1_TX
     */
-    GPIO_InitStruct.Pin = GPIO_PIN_10;
-    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-    GPIO_InitStruct.Alternate = GPIO_AF7_USART1;
-    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
     GPIO_InitStruct.Pin = GPIO_PIN_6;
-    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Mode = GPIO_MODE_AF_OD;
+    GPIO_InitStruct.Pull = GPIO_PULLUP;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
     GPIO_InitStruct.Alternate = GPIO_AF7_USART1;
     HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);

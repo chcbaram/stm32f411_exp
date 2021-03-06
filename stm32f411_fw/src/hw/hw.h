@@ -33,7 +33,7 @@
 #include "adc.h"
 #include "esp.h"
 #include "pwm.h"
-
+#include "dxl.h"
 
 void hwInit(void);
 
