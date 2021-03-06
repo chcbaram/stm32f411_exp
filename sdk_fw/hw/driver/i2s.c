@@ -691,6 +691,9 @@ void cliI2S(cli_args_t *args)
         i2sStart();
       }
 
+
+      uint16_t volume = 50; // ~1000
+
       while(cliKeepLoop())
       {
         if (i2s_args.bytes_left < READBUF_SIZE)
@@ -753,8 +756,8 @@ void cliI2S(cli_args_t *args)
 
             for (int j=0; j<q_buf_len; j++)
             {
-              q_buf[q_offset + j].left  = i2s_args.out_buf[j*2 + 0];
-              q_buf[q_offset + j].right = i2s_args.out_buf[j*2 + 1];
+              q_buf[q_offset + j].left  = i2s_args.out_buf[j*2 + 0] * volume / 1000;
+              q_buf[q_offset + j].right = i2s_args.out_buf[j*2 + 1] * volume / 1000;
             }
             if (((q_in + 1) % q_len) != q_out)
             {

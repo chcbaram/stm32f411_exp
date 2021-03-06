@@ -119,8 +119,8 @@ void lcdMain(args_t *p_args)
 
 	  lcdClearBuffer(black);
 
-	  int16_t x1 = 0;
-	  int16_t x2 = 0;
+	  uint16_t x1 = 0;
+	  uint16_t x2 = 0;
 
 
 	  if (buttonGetPressed(_DEF_BUTTON1))
