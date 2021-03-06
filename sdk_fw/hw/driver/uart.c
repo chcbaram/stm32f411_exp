@@ -81,7 +81,7 @@ bool uartOpen(uint8_t ch, uint32_t baud)
       huart1.Init.Parity      = UART_PARITY_NONE;
       huart1.Init.Mode        = UART_MODE_TX_RX;
       huart1.Init.HwFlowCtl   = UART_HWCONTROL_NONE;
-      huart1.Init.OverSampling= UART_OVERSAMPLING_8;
+      huart1.Init.OverSampling= UART_OVERSAMPLING_16;
 
       HAL_UART_DeInit(&huart1);
 
@@ -315,8 +315,8 @@ void HAL_UART_MspInit(UART_HandleTypeDef* uartHandle)
     PB6     ------> USART1_TX
     */
     GPIO_InitStruct.Pin = GPIO_PIN_6;
-    GPIO_InitStruct.Mode = GPIO_MODE_AF_OD;
-    GPIO_InitStruct.Pull = GPIO_PULLUP;
+    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
     GPIO_InitStruct.Alternate = GPIO_AF7_USART1;
     HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);

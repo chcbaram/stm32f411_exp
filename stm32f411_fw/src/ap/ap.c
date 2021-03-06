@@ -9,11 +9,22 @@
 #include "ap.h"
 
 
+typedef struct
+{
+  uint32_t pre_time;
+  uint16_t x_time;
+  uint8_t  mode;
+} args_t;
+
+
+
 LCD_IMAGE_DEF(img_logo);
 LCD_IMAGE_DEF(img_logo2);
 
 void cliBoot(cli_args_t *args);
-void lcdMain(void);
+void lcdMain(args_t *p_args);
+void sdMain(args_t *p_args);
+
 
 void apInit(void)
 {
@@ -27,8 +38,17 @@ void apInit(void)
 void apMain(void)
 {
   uint32_t pre_time;
-  sd_state_t sd_state;
+  args_t args;
+  uint8_t  buf[128];
+  uint16_t buf_len;
+  uint32_t baud;
 
+  baud = uartGetBaud(_DEF_UART1);
+
+
+  args.mode = 0;
+  args.x_time = 0;
+  args.pre_time = millis();
 
   pre_time = millis();
   while(1)
@@ -39,57 +59,83 @@ void apMain(void)
       ledToggle(_DEF_LED1);
     }
 
-    cliMain();
-    lcdMain();
+    if (args.mode == 0)
+    {
+      cliMain();
+    }
+    else
+    {
+      if (baud != uartGetBaud(_DEF_UART1))
+      {
+        baud = uartGetBaud(_DEF_UART1);
+        uartOpen(_DEF_UART2, baud);
+      }
 
-    sd_state = sdUpdate();
-    if (sd_state == SDCARD_CONNECTED)
-    {
-      logPrintf("\nSDCARD_CONNECTED\n");
+      // USB -> XL-330
+      buf_len = uartAvailable(_DEF_UART1);
+      if (buf_len > 0)
+      {
+        if (buf_len > 128)
+        {
+          buf_len = 128;
+        }
+        for (int i=0; i<buf_len; i++)
+        {
+          buf[i] = uartRead(_DEF_UART1);
+        }
+        uartWrite(_DEF_UART2, &buf[0], buf_len);
+      }
+      // XL-330 -> USB
+      buf_len = uartAvailable(_DEF_UART2);
+      if (buf_len > 0)
+      {
+        if (buf_len > 128)
+        {
+          buf_len = 128;
+        }
+        for (int i=0; i<buf_len; i++)
+        {
+          buf[i] = uartRead(_DEF_UART2);
+        }
+        uartWrite(_DEF_UART1, &buf[0], buf_len);
+      }
     }
-    if (sd_state == SDCARD_DISCONNECTED)
-    {
-      logPrintf("\nSDCARD_DISCONNECTED\n");
-    }
+
+    lcdMain(&args);
+    sdMain(&args);
   }
 }
 
-void lcdMain(void)
+void lcdMain(args_t *p_args)
 {
-  static uint32_t pre_time;
-
 	if (lcdIsInit() != true)
 	{
 	  return;
 	}
 
-	if (millis()-pre_time >= (1000/30) && lcdDrawAvailable() == true)
+	if (millis()-p_args->pre_time >= (1000/30) && lcdDrawAvailable() == true)
 	{
-	  pre_time = millis();
+	  p_args->pre_time = millis();
 
 	  lcdClearBuffer(black);
 
-#if 1
 	  int16_t x1 = 0;
 	  int16_t x2 = 0;
 
-	  static int16_t x_time = 0;
-	  static float font_size = 1;
-	  static uint8_t mode = 0;
 
 	  if (buttonGetPressed(_DEF_BUTTON1))
 	  {
-	    mode = (mode + 1)%3;
+	    p_args->mode = (p_args->mode + 1)%2;
 	    delay(200);
 	  }
-	  if (mode == 0)
+	  if (p_args->mode == 0)
 	  {
-      x_time += 2;
+	    p_args->x_time += 2;
 
-      x1 = x_time;
+      x1 = p_args->x_time;
       x1 %= (LCD_WIDTH-img_logo.header.w);;
 
-      x2 = x_time;
+      x2 = p_args->x_time;
       x2 %= (LCD_WIDTH-img_logo.header.w);
       x2 = LCD_WIDTH - img_logo.header.w - x2;
 
@@ -97,86 +143,28 @@ void lcdMain(void)
       lcdDrawImage(x2, 0, &img_logo2);
 	  }
 
-	  if (mode == 1)
-	  {
-      lcdPrintfResize(0, 0, green, font_size, "폰트시험");
-      font_size += 1;
-      if (font_size >= 60)
-      {
-        font_size = 1;
-      }
-	  }
-
-    if (mode == 2)
+    if (p_args->mode == 1)
     {
-      lcdPrintfResize(0, 0, green, 16, "폰트시험");
-      lcdPrintfResize(0,16, green, 24, "폰트시험");
-      lcdPrintfResize(0,40, green, 32, "폰트시험");
+      lcdPrintfResize(0,16, green, 32, "U2D2 Mode");
     }
-#else
-    McpMode mode;
-    McpBaud baud;
-    int16_t x = 0;
-    int16_t y = 6;
-
-	  lcdSetFont(LCD_FONT_HAN);
-	  lcdPrintf(24,16*0, green, "[CAN 통신]");
-
-	  lcdSetFont(LCD_FONT_07x10);
-
-	  for (int ch=0; ch<MCP2515_MAX_CH; ch++)
-	  {
-      mode = mcp2515GetMode(ch);
-      baud = mcp2515GetBaud(ch);
-
-      x = 0;
-      y += 12;
-      switch(mode)
-      {
-        case MCP_MODE_NORMAL:
-        lcdPrintf(x, y, white, "ch%d Mode : Normal", ch);
-        break;
-        case MCP_MODE_SLEEP:
-        lcdPrintf(x, y, white, "ch%d Mode : Sleep", ch);
-        break;
-        case MCP_MODE_LOOPBACK:
-        lcdPrintf(x, y, white, "ch%d Mode : Loopback", ch);
-        break;
-        case MCP_MODE_LISTEN:
-        lcdPrintf(x, y, white, "ch%d Mode : Listen", ch);
-        break;
-        case MCP_MODE_CONFIG:
-        lcdPrintf(x, y, white, "ch%d Mode : Config", ch);
-        break;
-      }
-
-      x = 0;
-      y += 12;
-      switch(baud)
-      {
-        case MCP_BAUD_100K:
-        lcdPrintf(x, y, white, "    Baud : 100Kbps", ch);
-        break;
-        case MCP_BAUD_125K:
-        lcdPrintf(x, y, white, "    Baud : 125Kbps", ch);
-        break;
-        case MCP_BAUD_250K:
-        lcdPrintf(x, y, white, "    Baud : 250Kbps", ch);
-        break;
-        case MCP_BAUD_500K:
-        lcdPrintf(x, y, white, "    Baud : 500Kbps", ch);
-        break;
-        case MCP_BAUD_1000K:
-        lcdPrintf(x, y, white, "    Baud : 1Mbps", ch);
-        break;
-        default:
-        lcdPrintf(x, y, white, "    Baud : unknown", ch);
-        break;
-      }
-	  }
-#endif
 
 	  lcdRequestDraw();
+  }
+}
+
+void sdMain(args_t *p_args)
+{
+  sd_state_t sd_state;
+
+
+  sd_state = sdUpdate();
+  if (sd_state == SDCARD_CONNECTED)
+  {
+    logPrintf("\nSDCARD_CONNECTED\n");
+  }
+  if (sd_state == SDCARD_DISCONNECTED)
+  {
+    logPrintf("\nSDCARD_DISCONNECTED\n");
   }
 }
 
@@ -193,6 +181,8 @@ void cliBoot(cli_args_t *args)
     cliPrintf("boot ver   : %s\n", p_boot_ver->version);
     cliPrintf("boot name  : %s\n", p_boot_ver->name);
     cliPrintf("boot param : 0x%X\n", rtcBackupRegRead(0));
+
+    cliPrintf("PCLK2 : %d\n",HAL_RCC_GetPCLK2Freq());
 
     ret = true;
   }
