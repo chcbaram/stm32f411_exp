@@ -28,11 +28,7 @@ void apMain(void)
 {
   uint32_t pre_time;
   sd_state_t sd_state;
-  uint8_t  buf[128];
-  uint16_t buf_len;
-  uint32_t baud;
 
-  baud = uartGetBaud(_DEF_UART1);
 
   pre_time = millis();
   while(1)
@@ -41,74 +37,9 @@ void apMain(void)
     {
       pre_time = millis();
       ledToggle(_DEF_LED1);
-
-      buf[0] = 0xFF;
-      buf[1] = 0xFF;
-      buf[2] = 0xFD;
-      buf[3] = 0x00;
-      buf[4] = 0x01;
-      buf[5] = 0x03;
-      buf[6] = 0x00;
-      buf[7] = 0x01;
-      buf[8] = 0x19;
-      buf[9] = 0x4E;
-
-      logPrintf("\n");
-      uartWrite(_DEF_UART2, &buf[0], 10);
     }
 
-#if 1
-
-    if (uartAvailable(_DEF_UART2) > 0)
-    {
-      logPrintf("rx : 0x%X\n", uartRead(_DEF_UART2));
-    }
-
-
-#else
-
-    if (baud != uartGetBaud(_DEF_UART1))
-    {
-      baud = uartGetBaud(_DEF_UART1);
-      uartOpen(_DEF_UART2, baud);
-    }
-
-
-    // USB -> XL-330
-    buf_len = uartAvailable(_DEF_UART1);
-    if (buf_len > 0)
-    {
-      if (buf_len > 128)
-      {
-        buf_len = 128;
-      }
-      for (int i=0; i<buf_len; i++)
-      {
-        buf[i] = uartRead(_DEF_UART1);
-      }
-
-      uartWrite(_DEF_UART2, &buf[0], buf_len);
-    }
-
-    // XL-330 -> USB
-    buf_len = uartAvailable(_DEF_UART2);
-    if (buf_len > 0)
-    {
-      if (buf_len > 128)
-      {
-        buf_len = 128;
-      }
-      for (int i=0; i<buf_len; i++)
-      {
-        buf[i] = uartRead(_DEF_UART2);
-      }
-
-      uartWrite(_DEF_UART1, &buf[0], buf_len);
-    }
-#endif
-
-
-    //cliMain();
+    cliMain();
     lcdMain();
 
     sd_state = sdUpdate();

@@ -76,6 +76,10 @@
 #define _DEF_CAN_STD          0
 #define _DEF_CAN_EXT          1
 
+#define _DEF_DXL1             0
+#define _DEF_DXL2             1
+#define _DEF_DXL3             2
+#define _DEF_DXL4             3
 
 
 #define constrain(amt,low,high) ((amt)<(low)?(low):((amt)>(high)?(high):(amt)))

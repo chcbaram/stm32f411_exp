@@ -21,6 +21,26 @@
 #define DXL_PACKET_BUF_MAX        HW_DXL_PACKET_BUF_MAX
 
 
+
+enum
+{
+  DXL_INST_PING           = 0x01,
+  DXL_INST_READ           = 0x02,
+  DXL_INST_WRITE          = 0x03,
+  DXL_INST_REG_WRITE      = 0x04,
+  DXL_INST_ACTION         = 0x05,
+  DXL_INST_FACTORY_RESET  = 0x06,
+  DXL_INST_REBOOT         = 0x08,
+  DXL_INST_CLEAR          = 0x10,
+  DXL_INST_STATUS         = 0x55,
+  DXL_INST_SYNC_READ      = 0x82,
+  DXL_INST_SYNC_WRITE     = 0x83,
+  DXL_INST_BULK_READ      = 0x92,
+  DXL_INST_BULK_WRITE     = 0x93,
+};
+
+
+
 typedef struct
 {
   uint8_t  header[3];
@@ -36,7 +56,7 @@ typedef struct
 
 typedef struct
 {
-  bool     is_init;
+  bool     is_open;
   uint8_t  ch;
   uint32_t baud;
 
@@ -48,7 +68,7 @@ typedef struct
 
 
 bool dxlInit(void);
-bool dxlOpen(dxl_t *p_dxl, uint8_t ch, uint32_t baud);
+bool dxlOpen(dxl_t *p_dxl, uint8_t dxl_ch, uint32_t baud);
 bool dxlClose(dxl_t *p_dxl);
 bool dxlSendInst(dxl_t *p_dxl, uint8_t id,  uint8_t inst, uint8_t *p_param, uint16_t param_len);
 bool dxlReceivePacket(dxl_t *p_dxl);
