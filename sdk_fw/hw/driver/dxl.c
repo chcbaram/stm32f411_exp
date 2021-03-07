@@ -11,6 +11,37 @@
 #include "uart.h"
 
 
+
+enum
+{
+  DXL_PKT_HEADER_1 = 0,
+  DXL_PKT_HEADER_2,
+  DXL_PKT_HEADER_3,
+  DXL_PKT_RESERVED,
+  DXL_PKT_ID,
+  DXL_PKT_LENGTH_1,
+  DXL_PKT_LENGTH_2,
+  DXL_PKT_INST,
+  DXL_PKT_ERR,
+};
+
+enum
+{
+  DXL_STATE_HEADER_1,
+  DXL_STATE_HEADER_2,
+  DXL_STATE_HEADER_3,
+  DXL_STATE_RESERVED,
+  DXL_STATE_ID,
+  DXL_STATE_LENGTH_1,
+  DXL_STATE_LENGTH_2,
+  DXL_STATE_INST,
+  DXL_STATE_ERR,
+  DXL_STATE_PARAM,
+  DXL_STATE_CRC_L,
+  DXL_STATE_CRC_H,
+};
+
+
 static uint16_t dxlUpdateCrc(uint16_t crc_accum, uint8_t *data_blk_ptr, uint16_t data_blk_size);
 
 
@@ -36,10 +67,11 @@ bool dxlOpen(dxl_t *p_dxl, uint8_t dxl_ch, uint32_t baud)
 {
   bool ret = true;
 
-  p_dxl->ch   = dxl_ch;
-  p_dxl->baud = baud;
-  p_dxl->inst_packet.param = NULL;
-  p_dxl->status_packet.param = NULL;
+  p_dxl->ch    = dxl_ch;
+  p_dxl->baud  = baud;
+  p_dxl->state = DXL_STATE_HEADER_1;
+  p_dxl->pre_time = millis();
+  p_dxl->packet.param = NULL;
   p_dxl->is_open = uartOpen(dxl_ch, baud);
 
   ret = p_dxl->is_open;
@@ -60,25 +92,48 @@ bool dxlSendInst(dxl_t *p_dxl, uint8_t id,  uint8_t inst, uint8_t *p_param, uint
   uint16_t packet_len;
   uint16_t crc = 0;
   uint16_t index;
-
+  uint32_t  stuff_header;
 
   packet_len = param_len + 3;
 
   index = 0;
-  p_dxl->packet_buf[index++] = 0xFF;
-  p_dxl->packet_buf[index++] = 0xFF;
-  p_dxl->packet_buf[index++] = 0xFD;
-  p_dxl->packet_buf[index++] = 0x00;
-  p_dxl->packet_buf[index++] = id;
-  p_dxl->packet_buf[index++] = (packet_len >> 0) & 0xFF;
-  p_dxl->packet_buf[index++] = (packet_len >> 8) & 0xFF;
+  p_dxl->packet_buf[DXL_PKT_HEADER_1] = 0xFF;
+  p_dxl->packet_buf[DXL_PKT_HEADER_2] = 0xFF;
+  p_dxl->packet_buf[DXL_PKT_HEADER_3] = 0xFD;
+  p_dxl->packet_buf[DXL_PKT_RESERVED] = 0x00;
+  p_dxl->packet_buf[DXL_PKT_ID]       = id;
+  p_dxl->packet_buf[DXL_PKT_LENGTH_1] = (packet_len >> 0) & 0xFF;
+  p_dxl->packet_buf[DXL_PKT_LENGTH_2] = (packet_len >> 8) & 0xFF;
+
+
+  //-- Add Stuffing
+  //
+  index = DXL_PKT_INST;
+  stuff_header = 0;
+
   p_dxl->packet_buf[index++] = inst;
-  p_dxl->inst_packet.param = &p_dxl->packet_buf[8];
+  stuff_header = inst;
+  p_dxl->packet.param = &p_dxl->packet_buf[8];
 
   for (int i=0; i<param_len; i++)
   {
     p_dxl->packet_buf[index++] = p_param[i];
+
+    // Add Byte Stuffing
+    stuff_header <<= 8;
+    stuff_header  |= p_param[i];
+    stuff_header  &= 0x00FFFFFF;
+
+    if (stuff_header == 0x00FFFFFD)
+    {
+      p_dxl->packet_buf[index++] = 0xFD;
+      packet_len++;
+    }
   }
+
+  p_dxl->packet_buf[DXL_PKT_LENGTH_1] = (packet_len >> 0) & 0xFF;
+  p_dxl->packet_buf[DXL_PKT_LENGTH_2] = (packet_len >> 8) & 0xFF;
+
 
   crc = dxlUpdateCrc(0, p_dxl->packet_buf, index);
 
@@ -86,14 +141,204 @@ bool dxlSendInst(dxl_t *p_dxl, uint8_t id,  uint8_t inst, uint8_t *p_param, uint
   p_dxl->packet_buf[index++] = (crc >> 8) & 0xFF;
 
 
-  uartWrite(p_dxl->ch, p_dxl->packet_buf, 10);
+  uartWrite(p_dxl->ch, p_dxl->packet_buf, index);
 
   return ret;
 }
 
 bool dxlReceivePacket(dxl_t *p_dxl)
 {
-  bool ret = true;
+  bool ret = false;
+  uint8_t rx_data;
+  uint16_t crc;
+  uint16_t index;
+
+
+  if (uartAvailable(p_dxl->ch) > 0)
+  {
+    rx_data = uartRead(p_dxl->ch);
+  }
+  else
+  {
+    return false;
+  }
+
+  if (millis()-p_dxl->pre_time >= 100)
+  {
+    p_dxl->state = DXL_STATE_HEADER_1;
+  }
+  p_dxl->pre_time = millis();
+
+
+  switch(p_dxl->state)
+  {
+    case DXL_STATE_HEADER_1:
+      if (rx_data == 0xFF)
+      {
+        p_dxl->packet_buf[DXL_PKT_HEADER_1] = rx_data;
+        p_dxl->state = DXL_STATE_HEADER_2;
+      }
+      break;
+
+    case DXL_STATE_HEADER_2:
+      if (rx_data == 0xFF)
+      {
+        p_dxl->packet_buf[DXL_PKT_HEADER_2] = rx_data;
+        p_dxl->state = DXL_STATE_HEADER_3;
+      }
+      else
+      {
+        p_dxl->state = DXL_STATE_HEADER_1;
+      }
+      break;
+
+    case DXL_STATE_HEADER_3:
+      if (rx_data == 0xFD)
+      {
+        p_dxl->packet_buf[DXL_PKT_HEADER_3] = rx_data;
+        p_dxl->state = DXL_STATE_RESERVED;
+      }
+      else
+      {
+        p_dxl->state = DXL_STATE_HEADER_1;
+      }
+      break;
+
+    case DXL_STATE_RESERVED:
+      if (rx_data == 0x00)
+      {
+        p_dxl->packet_buf[DXL_PKT_RESERVED] = rx_data;
+        p_dxl->state = DXL_STATE_ID;
+      }
+      else
+      {
+        p_dxl->state = DXL_STATE_HEADER_1;
+      }
+      break;
+
+    case DXL_STATE_ID:
+      p_dxl->packet_buf[DXL_PKT_ID] = rx_data;
+      p_dxl->state = DXL_STATE_LENGTH_1;
+      break;
+
+    case DXL_STATE_LENGTH_1:
+      p_dxl->packet_buf[DXL_PKT_LENGTH_1] = rx_data;
+      p_dxl->state = DXL_STATE_LENGTH_2;
+      break;
+
+    case DXL_STATE_LENGTH_2:
+      p_dxl->packet_buf[DXL_PKT_LENGTH_2] = rx_data;
+      p_dxl->state = DXL_STATE_INST;
+      break;
+
+    case DXL_STATE_INST:
+      p_dxl->packet_buf[DXL_PKT_INST] = rx_data;
+      p_dxl->packet.length  = p_dxl->packet_buf[DXL_PKT_LENGTH_1] << 0;
+      p_dxl->packet.length |= p_dxl->packet_buf[DXL_PKT_LENGTH_2] << 8;
+      p_dxl->packet.param_index = 0;
+
+      if (rx_data == 0x55)
+      {
+        p_dxl->is_status_packet = true;
+        p_dxl->packet.param_len = p_dxl->packet.length - 4;
+        p_dxl->index = DXL_PKT_ERR + 1;
+        p_dxl->state = DXL_STATE_ERR;
+      }
+      else
+      {
+        p_dxl->is_status_packet = false;
+        p_dxl->packet.param_len = p_dxl->packet.length - 3;
+        p_dxl->index = DXL_PKT_INST + 1;
+        if (p_dxl->packet.param_len > 0)
+        {
+          p_dxl->state = DXL_STATE_PARAM;
+        }
+        else
+        {
+          p_dxl->state = DXL_STATE_CRC_L;
+        }
+      }
+      p_dxl->packet.param = &p_dxl->packet_buf[p_dxl->index];
+      break;
+
+    case DXL_STATE_ERR:
+      p_dxl->packet_buf[DXL_PKT_ERR] = rx_data;
+      if (p_dxl->packet.param_len > 0)
+      {
+        p_dxl->state = DXL_STATE_PARAM;
+      }
+      else
+      {
+        p_dxl->state = DXL_STATE_CRC_L;
+      }
+      break;
+
+    case DXL_STATE_PARAM:
+      index = p_dxl->index + p_dxl->packet.param_index;
+      p_dxl->packet.param_index++;
+      p_dxl->packet_buf[index] = rx_data;
+      if (p_dxl->packet.param_index >= p_dxl->packet.param_len)
+      {
+        p_dxl->index += p_dxl->packet.param_len;
+        p_dxl->state = DXL_STATE_CRC_L;
+      }
+      break;
+
+    case DXL_STATE_CRC_L:
+      p_dxl->packet.crc = rx_data;
+      p_dxl->state = DXL_STATE_CRC_H;
+      break;
+
+    case DXL_STATE_CRC_H:
+      p_dxl->packet.crc |= rx_data<<8;
+
+      crc = dxlUpdateCrc(0, p_dxl->packet_buf, p_dxl->index);
+
+      if (crc == p_dxl->packet.crc)
+      {
+        ret = true;
+      }
+
+      p_dxl->state = DXL_STATE_HEADER_1;
+      break;
+  }
+
+
+  if (ret == true)
+  {
+    p_dxl->packet.id   = p_dxl->packet_buf[DXL_PKT_ID];
+    p_dxl->packet.inst = p_dxl->packet_buf[DXL_PKT_INST];
+    p_dxl->packet.err  = p_dxl->packet_buf[DXL_PKT_ERR];
+
+    //-- Remove Stuffing
+    //
+    uint16_t stuff_len;
+    uint16_t stuff_index;
+    uint32_t stuff_header;
+
+    stuff_len = p_dxl->packet.length - 2;
+
+    stuff_header = 0;
+    stuff_index = DXL_PKT_INST;
+    for (int i=0; i<stuff_len; i++)
+    {
+      stuff_header |= p_dxl->packet_buf[DXL_PKT_INST + i];
+      if (stuff_header == 0xFFFFFDFD)
+      {
+        p_dxl->packet.length--;
+        p_dxl->packet.param_len--;
+        i++;
+      }
+
+      p_dxl->packet_buf[stuff_index] = p_dxl->packet_buf[DXL_PKT_INST + i];
+      stuff_index++;
+
+      stuff_header <<= 8;
+    }
+
+    p_dxl->packet_buf[DXL_PKT_LENGTH_1] = p_dxl->packet.length >> 0;
+    p_dxl->packet_buf[DXL_PKT_LENGTH_2] = p_dxl->packet.length >> 8;
+  }
 
 
   return ret;
@@ -147,6 +392,108 @@ uint16_t dxlUpdateCrc(uint16_t crc_accum, uint8_t *data_blk_ptr, uint16_t data_b
 }
 
 
+
+
+bool dxlInstPing(dxl_t *p_dxl, uint8_t id, dxl_inst_ping_resp_t *p_resp, uint32_t timeout)
+{
+  bool ret;
+  uint32_t pre_time;
+
+  ret = dxlSendInst(p_dxl, id, DXL_INST_PING, NULL, 0);
+
+  if (ret == true)
+  {
+    pre_time = millis();
+    while(millis()-pre_time < timeout)
+    {
+      ret = dxlReceivePacket(p_dxl);
+      if (ret == true)
+      {
+        break;
+      }
+    }
+  }
+
+  if (ret == true)
+  {
+    p_resp->model_number  = p_dxl->packet.param[0] << 0;
+    p_resp->model_number |= p_dxl->packet.param[1] << 8;
+    p_resp->firm_version  = p_dxl->packet.param[2];
+  }
+
+  return ret;
+}
+
+bool dxlInstRead(dxl_t *p_dxl, uint8_t id, uint16_t addr, uint8_t *p_data, uint16_t length, uint32_t timeout)
+{
+  bool ret;
+  uint32_t pre_time;
+  uint8_t tx_buf[4];
+
+  tx_buf[0] = addr >> 0;
+  tx_buf[1] = addr >> 8;
+  tx_buf[2] = length >> 0;
+  tx_buf[3] = length >> 8;
+
+  ret = dxlSendInst(p_dxl, id, DXL_INST_READ, tx_buf, 4);
+
+  if (ret == true)
+  {
+    pre_time = millis();
+    while(millis()-pre_time < timeout)
+    {
+      ret = dxlReceivePacket(p_dxl);
+      if (ret == true)
+      {
+        break;
+      }
+    }
+  }
+
+  if (ret == true && p_data != NULL)
+  {
+    for (int i=0; i<length; i++)
+    {
+      p_data[i] = p_dxl->packet.param[i];
+    }
+  }
+
+  return ret;
+}
+
+bool dxlInstWrite(dxl_t *p_dxl, uint8_t id, uint16_t addr, uint8_t *p_data, uint16_t length, uint32_t timeout)
+{
+  bool ret;
+  uint32_t pre_time;
+  uint8_t tx_buf[4 + length];
+
+  tx_buf[0] = addr >> 0;
+  tx_buf[1] = addr >> 8;
+
+  for (int i=0; i<length; i++)
+  {
+    tx_buf[2+i] = p_data[i];
+  }
+
+  ret = dxlSendInst(p_dxl, id, DXL_INST_WRITE, tx_buf, 2 + length);
+
+  if (ret == true)
+  {
+    pre_time = millis();
+    while(millis()-pre_time < timeout)
+    {
+      ret = dxlReceivePacket(p_dxl);
+      if (ret == true)
+      {
+        break;
+      }
+    }
+  }
+
+  return ret;
+}
+
+
 #ifdef _USE_HW_CLI
 
 static dxl_t cli_dxl;
@@ -172,40 +519,114 @@ static void cliDxl(cli_args_t *args)
   {
     uint8_t dxl_id;
     uint8_t dxl_ret;
-    uint32_t pre_time;
-    uint8_t index;
-    uint8_t buf[3];
+    dxl_inst_ping_resp_t ping_resp;
 
     dxl_id = (uint8_t)args->getData(1);
 
-    buf[0] = 0;
-    buf[1] = 0;
-    buf[2] = 0;
-    dxl_ret = dxlSendInst(&cli_dxl, dxl_id, DXL_INST_PING, buf, 0);
-
+    dxl_ret = dxlInstPing(&cli_dxl, dxl_id, &ping_resp, 100);
     if (dxl_ret == true)
     {
-      index = 0;
-      pre_time = millis();
-      while(millis()-pre_time < 100)
+      cliPrintf("Model Number : 0x%X(%d)\n", ping_resp.model_number, ping_resp.model_number);
+      cliPrintf("Firm Version : 0x%X(%d)\n", ping_resp.firm_version, ping_resp.firm_version);
+    }
+    else
+    {
+      cliPrintf("dxlInstPing Fail : 0x%X\n", cli_dxl.packet.err);
+    }
+
+    ret = true;
+  }
+
+  if (args->argc == 4 && args->isStr(0, "read"))
+  {
+    uint8_t  dxl_id;
+    uint16_t dxl_addr;
+    uint16_t dxl_len;
+    uint8_t  dxl_ret;
+
+    dxl_id   = (uint8_t)args->getData(1);
+    dxl_addr = (uint8_t)args->getData(2);
+    dxl_len  = (uint8_t)args->getData(3);
+
+
+    dxl_ret = dxlInstRead(&cli_dxl, dxl_id, dxl_addr, NULL, dxl_len, 100);
+    if (dxl_ret == true)
+    {
+      for (int i=0; i<cli_dxl.packet.param_len; i++)
       {
-        if (uartAvailable(_DEF_DXL2) > 0)
-        {
-          cliPrintf("rx %d:0x%X\n", index++, uartRead(_DEF_DXL2));
-        }
+        cliPrintf("rx %d:0x%02X (%d)\n",
+                  dxl_addr + i,
+                  cli_dxl.packet.param[i],
+                  cli_dxl.packet.param[i]);
       }
     }
     else
     {
-      cliPrintf("dxlSendInst fail\n");
+      cliPrintf("dxlInstRead Fail : 0x%X\n", cli_dxl.packet.err);
     }
+
     ret = true;
   }
 
+  if (args->argc == 5 && args->isStr(0, "write"))
+  {
+    uint8_t  dxl_id;
+    uint16_t dxl_addr;
+    uint16_t dxl_len;
+    uint8_t  dxl_ret;
+    uint32_t dxl_data;
+
+    dxl_id   = (uint8_t)args->getData(1);
+    dxl_addr = (uint8_t)args->getData(2);
+    dxl_data = (uint8_t)args->getData(3);
+    dxl_len  = (uint8_t)args->getData(4);
+
+    if (dxl_len > 4) dxl_len = 4;
+
+
+    dxl_ret = dxlInstWrite(&cli_dxl, dxl_id, dxl_addr, (uint8_t *)&dxl_data, dxl_len, 100);
+    if (dxl_ret == true)
+    {
+      cliPrintf("dxlInstWrite OK\n");
+    }
+    else
+    {
+      cliPrintf("dxlInstWrite Fail : 0x%X\n", cli_dxl.packet.err);
+    }
+
+    ret = true;
+  }
+
+  if (args->argc == 2 && args->isStr(0, "led_test"))
+  {
+    uint8_t dxl_id;
+    uint8_t dxl_data;
+    bool dxl_ret;
+
+    dxl_id = args->getData(1);
+
+    dxl_data = 0;
+    while(cliKeepLoop())
+    {
+      dxl_data ^= 1;
+      dxl_ret = dxlInstWrite(&cli_dxl, dxl_id, 65, (uint8_t *)&dxl_data, 1, 100);
+      if (dxl_ret == false)
+      {
+        cliPrintf("dxlInstWrite Fail\n");
+        break;
+      }
+      delay(500);
+    }
+
+    ret = true;
+  }
   if (ret == false)
   {
     cliPrintf("dxl open baud\n");
     cliPrintf("dxl ping id\n");
+    cliPrintf("dxl read id addr len\n");
+    cliPrintf("dxl write id addr data len(~4)\n");
+    cliPrintf("dxl led_test id\n");
   }
 }
 #endif
