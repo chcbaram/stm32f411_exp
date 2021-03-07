@@ -11,6 +11,7 @@
 #include "files.h"
 #include "gpio.h"
 #include "lcd.h"
+#include "adc.h"
 
 
 #ifdef _USE_HW_I2S
@@ -466,8 +467,10 @@ uint32_t findID3Offset(uint8_t *readPtr)
 
 void cliI2S(cli_args_t *args)
 {
-  bool ret = false;
+  bool      ret = false;
   i2s_cli_t i2s_args;
+  uint16_t  volume = 0;
+  uint32_t  pre_time;
 
 
   memset(i2s_args.block_peak, 0, sizeof(i2s_args.block_peak));
@@ -520,15 +523,15 @@ void cliI2S(cli_args_t *args)
     cliPrintf("BitsPerSample : %d\n", header.BitsPerSample);
     cliPrintf("Subchunk2Size : %d\n", header.Subchunk2Size);
 
-    lcdClearBuffer(black);
-    lcdSetFont(LCD_FONT_HAN);
-    lcdPrintf(24,16*0, green, "WAV 플레이");
-
-    lcdSetFont(LCD_FONT_07x10);
-    lcdPrintf(20,18*1+10*0, white, "%s", file_name);
-    lcdPrintf(20,18*1+10*1, white, "%d Khz", header.SampleRate/1000);
-    lcdPrintf(20,18*1+10*2, white, "%d ch", header.NumChannels);
-    lcdRequestDraw();
+//    lcdClearBuffer(black);
+//    lcdSetFont(LCD_FONT_HAN);
+//    lcdPrintf(24,16*0, green, "WAV 플레이");
+//
+//    lcdSetFont(LCD_FONT_07x10);
+//    lcdPrintf(20,18*1+10*0, white, "%s", file_name);
+//    lcdPrintf(20,18*1+10*1, white, "%d Khz", header.SampleRate/1000);
+//    lcdPrintf(20,18*1+10*2, white, "%d ch", header.NumChannels);
+//    lcdRequestDraw();
 
     i2sSetSampleRate(_DEF_I2S1, header.SampleRate);
 
@@ -540,10 +543,30 @@ void cliI2S(cli_args_t *args)
 
     fseek(fp, sizeof(wavfile_header_t), SEEK_SET);
 
+    pre_time = millis() + 100;
     while(cliKeepLoop())
     {
       uint32_t buf_len;
       int len;
+
+      if (millis()-pre_time >= 100)
+      {
+        pre_time = millis();
+
+        volume = constrain(adcRead12(0), 0, 4000);
+        volume = (uint16_t)(map(volume, 0, 4000, 0, 100));
+
+        lcdClearBuffer(black);
+        lcdSetFont(LCD_FONT_HAN);
+        lcdPrintf(24,16*0, green, "[ WAV 플레이 ]");
+
+        lcdSetFont(LCD_FONT_07x10);
+        lcdPrintf(0,18*1+10*0, white, "file Name : %s", file_name);
+        lcdPrintf(0,18*1+10*1, white, "sampleRate: %d Khz", header.SampleRate/1000);
+        lcdPrintf(0,18*1+10*2, white, "Num of ch : %d ch", header.NumChannels);
+        lcdPrintf(0,18*1+10*3, white, "Volume    : %d %%", volume);
+        lcdRequestDraw();
+      }
 
       buf_len = ((q_len + q_in - q_out) % q_len);
       buf_len = (q_len - buf_len) - 1;
@@ -565,13 +588,13 @@ void cliI2S(cli_args_t *args)
         {
           if (header.NumChannels == 2)
           {
-            q_buf[q_offset + i].left  = buf_frame[i*2 + 0];
-            q_buf[q_offset + i].right = buf_frame[i*2 + 1];
+            q_buf[q_offset + i].left  = buf_frame[i*2 + 0] * volume / 100;;
+            q_buf[q_offset + i].right = buf_frame[i*2 + 1] * volume / 100;;
           }
           else
           {
-            q_buf[q_offset + i].left  = buf_frame[i];
-            q_buf[q_offset + i].right = buf_frame[i];
+            q_buf[q_offset + i].left  = buf_frame[i] * volume / 100;;
+            q_buf[q_offset + i].right = buf_frame[i] * volume / 100;;
           }
         }
 
@@ -691,11 +714,17 @@ void cliI2S(cli_args_t *args)
         i2sStart();
       }
 
-
-      uint16_t volume = 50; // ~1000
-
+      pre_time = millis() + 100;
       while(cliKeepLoop())
       {
+        if (millis()-pre_time >= 100)
+        {
+          pre_time = millis();
+
+          volume = constrain(adcRead12(0), 0, 4000);
+          volume = (uint16_t)(map(volume, 0, 4000, 0, 100));
+        }
+
         if (i2s_args.bytes_left < READBUF_SIZE)
         {
           n_read = fillReadBuffer(i2s_args.read_buf, i2s_args.read_ptr, READBUF_SIZE, i2s_args.bytes_left, fp);
@@ -756,8 +785,8 @@ void cliI2S(cli_args_t *args)
 
             for (int j=0; j<q_buf_len; j++)
             {
-              q_buf[q_offset + j].left  = i2s_args.out_buf[j*2 + 0] * volume / 1000;
-              q_buf[q_offset + j].right = i2s_args.out_buf[j*2 + 1] * volume / 1000;
+              q_buf[q_offset + j].left  = i2s_args.out_buf[j*2 + 0] * volume / 100;
+              q_buf[q_offset + j].right = i2s_args.out_buf[j*2 + 1] * volume / 100;
             }
             if (((q_in + 1) % q_len) != q_out)
             {
