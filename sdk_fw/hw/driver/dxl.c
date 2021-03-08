@@ -8,7 +8,7 @@
 
 #include "dxl.h"
 #include "cli.h"
-#include "uart.h"
+#include "dxl/dxl_uart.h"
 
 
 
@@ -42,6 +42,9 @@ enum
 };
 
 
+
+static bool dxlSendInst(dxl_t *p_dxl, uint8_t id,  uint8_t inst, uint8_t *p_param, uint16_t param_len);
+static bool dxlReceivePacket(dxl_t *p_dxl);
 static uint16_t dxlUpdateCrc(uint16_t crc_accum, uint8_t *data_blk_ptr, uint16_t data_blk_size);
 
 
@@ -63,18 +66,33 @@ bool dxlInit(void)
   return ret;
 }
 
+bool dxlLoadDriver(dxl_t *p_dxl, bool (*load_func)(dxl_driver_t *))
+{
+  bool ret;
+
+  ret = load_func(&p_dxl->driver);
+
+  return ret;
+}
+
 bool dxlOpen(dxl_t *p_dxl, uint8_t dxl_ch, uint32_t baud)
 {
   bool ret = true;
 
+  if (p_dxl->driver.is_init == false)
+  {
+    return false;
+  }
+
   p_dxl->ch    = dxl_ch;
   p_dxl->baud  = baud;
   p_dxl->state = DXL_STATE_HEADER_1;
-  p_dxl->pre_time = millis();
+  p_dxl->pre_time     = millis();
   p_dxl->packet.param = NULL;
-  p_dxl->is_open = uartOpen(dxl_ch, baud);
+  p_dxl->is_open      = p_dxl->driver.open(dxl_ch, baud);
 
   ret = p_dxl->is_open;
+
   return ret;
 }
 
@@ -141,7 +159,7 @@ bool dxlSendInst(dxl_t *p_dxl, uint8_t id,  uint8_t inst, uint8_t *p_param, uint
   p_dxl->packet_buf[index++] = (crc >> 8) & 0xFF;
 
 
-  uartWrite(p_dxl->ch, p_dxl->packet_buf, index);
+  p_dxl->driver.write(p_dxl->ch, p_dxl->packet_buf, index);
 
   return ret;
 }
@@ -154,9 +172,9 @@ bool dxlReceivePacket(dxl_t *p_dxl)
   uint16_t index;
 
 
-  if (uartAvailable(p_dxl->ch) > 0)
+  if (p_dxl->driver.available(p_dxl->ch) > 0)
   {
-    rx_data = uartRead(p_dxl->ch);
+    rx_data = p_dxl->driver.read(p_dxl->ch);
   }
   else
   {
@@ -394,13 +412,26 @@ uint16_t dxlUpdateCrc(uint16_t crc_accum, uint8_t *data_blk_ptr, uint16_t data_b
 
 
 
-bool dxlInstPing(dxl_t *p_dxl, uint8_t id, dxl_inst_ping_resp_t *p_resp, uint32_t timeout)
+bool dxlInstPing(dxl_t *p_dxl, uint8_t id, dxl_ping_resp_t *p_resp, uint32_t timeout)
 {
   bool ret;
   uint32_t pre_time;
+  uint16_t max_cnt = 1;
+
+  if (id == DXL_BROADCAST_ID)
+  {
+    max_cnt = (sizeof(p_resp->buf) - 11) / sizeof(dxl_ping_resp_device_t);
+    if (max_cnt > 253)
+    {
+      max_cnt = 253;
+    }
+  }
+
+  p_resp->device_cnt = 0;
+  p_resp->p_device = (dxl_ping_resp_device_t *)p_resp->buf;
+
 
   ret = dxlSendInst(p_dxl, id, DXL_INST_PING, NULL, 0);
-
   if (ret == true)
   {
     pre_time = millis();
@@ -409,16 +440,24 @@ bool dxlInstPing(dxl_t *p_dxl, uint8_t id, dxl_inst_ping_resp_t *p_resp, uint32_
       ret = dxlReceivePacket(p_dxl);
       if (ret == true)
       {
-        break;
+        p_resp->p_device[p_resp->device_cnt].id            = p_dxl->packet.id;
+        p_resp->p_device[p_resp->device_cnt].model_number  = p_dxl->packet.param[0] << 0;
+        p_resp->p_device[p_resp->device_cnt].model_number |= p_dxl->packet.param[1] << 8;
+        p_resp->p_device[p_resp->device_cnt].firm_version  = p_dxl->packet.param[2];
+
+        p_resp->device_cnt++;
+        if (p_resp->device_cnt >= max_cnt)
+        {
+          break;
+        }
+        pre_time = millis();
       }
     }
   }
 
-  if (ret == true)
+  if (p_resp->device_cnt > 0)
   {
-    p_resp->model_number  = p_dxl->packet.param[0] << 0;
-    p_resp->model_number |= p_dxl->packet.param[1] << 8;
-    p_resp->firm_version  = p_dxl->packet.param[2];
+    ret = true;
   }
 
   return ret;
@@ -501,6 +540,8 @@ static dxl_t cli_dxl;
 static void cliDxl(cli_args_t *args)
 {
   bool ret = false;
+  uint32_t pre_time;
+  uint32_t exe_time;
 
 
   if (args->argc == 2 && args->isStr(0, "open"))
@@ -509,25 +550,41 @@ static void cliDxl(cli_args_t *args)
 
     baud = args->getData(1);
 
-    dxlOpen(&cli_dxl, _DEF_DXL2, baud);
+    dxlLoadDriver(&cli_dxl, dxlUartDriver);
+    dxlOpen(&cli_dxl, _DEF_DXL1, baud);
 
-    cliPrintf("dxlOpen ch%d baud %d bps\n", _DEF_DXL2, baud);
+    cliPrintf("dxlOpen ch%d %d bps\n", _DEF_DXL1, baud);
     ret = true;
   }
 
-  if (args->argc == 2 && args->isStr(0, "ping"))
+  if (args->isStr(0, "ping"))
   {
     uint8_t dxl_id;
     uint8_t dxl_ret;
-    dxl_inst_ping_resp_t ping_resp;
+    dxl_ping_resp_t ping_resp;
 
-    dxl_id = (uint8_t)args->getData(1);
+    if (args->argc == 2)
+    {
+      dxl_id = (uint8_t)args->getData(1);
+    }
+    else
+    {
+      dxl_id = DXL_BROADCAST_ID;
+    }
 
+    pre_time = millis();
     dxl_ret = dxlInstPing(&cli_dxl, dxl_id, &ping_resp, 100);
+    exe_time = millis()-pre_time;
     if (dxl_ret == true)
     {
-      cliPrintf("Model Number : 0x%X(%d)\n", ping_resp.model_number, ping_resp.model_number);
-      cliPrintf("Firm Version : 0x%X(%d)\n", ping_resp.firm_version, ping_resp.firm_version);
+      cliPrintf("%d ms\n", exe_time);
+
+      for (int i=0; i<ping_resp.device_cnt; i++)
+      {
+        cliPrintf("ID : %d\n", ping_resp.p_device[i].id);
+        cliPrintf("   Model Number : 0x%X(%d)\n", ping_resp.p_device[i].model_number, ping_resp.p_device[i].model_number);
+        cliPrintf("   Firm Version : 0x%X(%d)\n", ping_resp.p_device[i].firm_version, ping_resp.p_device[i].firm_version);
+      }
     }
     else
     {

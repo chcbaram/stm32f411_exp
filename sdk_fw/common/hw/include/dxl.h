@@ -18,11 +18,28 @@
 
 #ifdef _USE_HW_DXL
 
-#define DXL_PACKET_BUF_MAX        HW_DXL_PACKET_BUF_MAX
+#define DXL_PACKET_BUF_MAX   HW_DXL_PACKET_BUF_MAX
 
 
 
 #define DXL_BROADCAST_ID     254
+
+
+
+typedef struct dxl_driver_t_ dxl_driver_t;
+
+typedef struct dxl_driver_t_
+{
+  bool     is_init;
+  bool     is_open;
+
+  bool     (*open)(uint8_t dxl_ch, uint32_t baud);
+  bool     (*close)(uint8_t dxl_ch);
+  uint32_t (*available)(uint8_t dxl_ch);
+  uint32_t (*write)(uint8_t dxl_ch, uint8_t *p_data, uint32_t length);
+  uint8_t  (*read)(uint8_t dxl_ch);
+  bool     (*flush)(uint8_t dxl_ch);
+} dxl_driver_t;
 
 
 enum
@@ -71,28 +88,36 @@ typedef struct
   dxl_packet_t packet;
 
   uint8_t  packet_buf[DXL_PACKET_BUF_MAX];
+
+  dxl_driver_t driver;
 } dxl_t;
-
-
-bool dxlInit(void);
-bool dxlOpen(dxl_t *p_dxl, uint8_t dxl_ch, uint32_t baud);
-bool dxlClose(dxl_t *p_dxl);
-bool dxlSendInst(dxl_t *p_dxl, uint8_t id,  uint8_t inst, uint8_t *p_param, uint16_t param_len);
-bool dxlReceivePacket(dxl_t *p_dxl);
-
-
 
 
 typedef struct
 {
-  uint16_t model_number;
+  uint8_t  id;
   uint8_t  firm_version;
-} dxl_inst_ping_resp_t;
+  uint16_t model_number;
+} dxl_ping_resp_device_t;
+
+
+typedef struct
+{
+  uint8_t device_cnt;
+
+  dxl_ping_resp_device_t *p_device;
+
+  uint8_t  buf[DXL_PACKET_BUF_MAX];
+} dxl_ping_resp_t;
 
 
 
+bool dxlInit(void);
+bool dxlLoadDriver(dxl_t *p_dxl, bool (*load_func)(dxl_driver_t *));
+bool dxlOpen(dxl_t *p_dxl, uint8_t dxl_ch, uint32_t baud);
+bool dxlClose(dxl_t *p_dxl);
 
-bool dxlInstPing(dxl_t *p_dxl, uint8_t id, dxl_inst_ping_resp_t *p_resp, uint32_t timeout);
+bool dxlInstPing(dxl_t *p_dxl, uint8_t id, dxl_ping_resp_t *p_resp, uint32_t timeout);
 bool dxlInstRead(dxl_t *p_dxl, uint8_t id, uint16_t addr, uint8_t *p_data, uint16_t length, uint32_t timeout);
 bool dxlInstWrite(dxl_t *p_dxl, uint8_t id, uint16_t addr, uint8_t *p_data, uint16_t length, uint32_t timeout);
 
