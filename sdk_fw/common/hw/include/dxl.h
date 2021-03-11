@@ -19,7 +19,7 @@
 #ifdef _USE_HW_DXL
 
 #define DXL_PACKET_BUF_MAX   HW_DXL_PACKET_BUF_MAX
-
+#define DXL_DEVICE_CNT_MAX   HW_DXL_DEVICE_CNT_MAX
 
 
 #define DXL_BROADCAST_ID     254
@@ -98,18 +98,45 @@ typedef struct
   uint8_t  id;
   uint8_t  firm_version;
   uint16_t model_number;
-} dxl_ping_resp_device_t;
+} dxl_ping_resp_t;
 
 
 typedef struct
 {
-  uint8_t device_cnt;
+  uint8_t resp_cnt;
 
-  dxl_ping_resp_device_t *p_device;
+  dxl_ping_resp_t *p_resp;
 
   uint8_t  buf[DXL_PACKET_BUF_MAX];
-} dxl_ping_resp_t;
+} dxl_ping_t;
 
+
+typedef struct
+{
+  uint8_t  id_cnt;
+  uint16_t addr;
+  uint16_t length;
+
+  uint8_t id[DXL_DEVICE_CNT_MAX];
+} dxl_sync_read_param_t;
+
+typedef struct
+{
+  uint8_t  id;
+  uint16_t addr;
+  uint16_t length;
+  uint8_t  *p_data;
+} dxl_sync_read_resp_t;
+
+typedef struct
+{
+  uint8_t  resp_cnt;
+
+  dxl_sync_read_param_t  param;
+  dxl_sync_read_resp_t   resp[DXL_DEVICE_CNT_MAX];
+
+  uint8_t buf[DXL_PACKET_BUF_MAX];
+} dxl_sync_read_t;
 
 
 bool dxlInit(void);
@@ -117,10 +144,11 @@ bool dxlLoadDriver(dxl_t *p_dxl, bool (*load_func)(dxl_driver_t *));
 bool dxlOpen(dxl_t *p_dxl, uint8_t dxl_ch, uint32_t baud);
 bool dxlClose(dxl_t *p_dxl);
 
-bool dxlInstPing(dxl_t *p_dxl, uint8_t id, dxl_ping_resp_t *p_resp, uint32_t timeout);
+bool dxlInstPing(dxl_t *p_dxl, uint8_t id, dxl_ping_t *p_inst, uint32_t timeout);
 bool dxlInstRead(dxl_t *p_dxl, uint8_t id, uint16_t addr, uint8_t *p_data, uint16_t length, uint32_t timeout);
 bool dxlInstWrite(dxl_t *p_dxl, uint8_t id, uint16_t addr, uint8_t *p_data, uint16_t length, uint32_t timeout);
 
+bool dxlInstSyncRead(dxl_t *p_dxl, dxl_sync_read_t *p_inst, uint32_t timeout);
 
 
 #endif

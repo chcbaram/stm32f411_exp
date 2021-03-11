@@ -88,9 +88,9 @@
 #define _USE_HW_PWM
 #define      HW_PWM_MAX_CH          1
 
-
 #define _USE_HW_DXL
 #define      HW_DXL_PACKET_BUF_MAX  512
+#define      HW_DXL_DEVICE_CNT_MAX  16
 
 
 #define _PIN_GPIO_SDCARD_DETECT     0

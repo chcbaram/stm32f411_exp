@@ -412,7 +412,7 @@ uint16_t dxlUpdateCrc(uint16_t crc_accum, uint8_t *data_blk_ptr, uint16_t data_b
 
 
 
-bool dxlInstPing(dxl_t *p_dxl, uint8_t id, dxl_ping_resp_t *p_resp, uint32_t timeout)
+bool dxlInstPing(dxl_t *p_dxl, uint8_t id, dxl_ping_t *p_inst, uint32_t timeout)
 {
   bool ret;
   uint32_t pre_time;
@@ -420,15 +420,15 @@ bool dxlInstPing(dxl_t *p_dxl, uint8_t id, dxl_ping_resp_t *p_resp, uint32_t tim
 
   if (id == DXL_BROADCAST_ID)
   {
-    max_cnt = (sizeof(p_resp->buf) - 11) / sizeof(dxl_ping_resp_device_t);
+    max_cnt = (sizeof(p_inst->buf) - 11) / sizeof(dxl_ping_resp_t);
     if (max_cnt > 253)
     {
       max_cnt = 253;
     }
   }
 
-  p_resp->device_cnt = 0;
-  p_resp->p_device = (dxl_ping_resp_device_t *)p_resp->buf;
+  p_inst->resp_cnt = 0;
+  p_inst->p_resp = (dxl_ping_resp_t *)p_inst->buf;
 
 
   ret = dxlSendInst(p_dxl, id, DXL_INST_PING, NULL, 0);
@@ -440,13 +440,13 @@ bool dxlInstPing(dxl_t *p_dxl, uint8_t id, dxl_ping_resp_t *p_resp, uint32_t tim
       ret = dxlReceivePacket(p_dxl);
       if (ret == true)
       {
-        p_resp->p_device[p_resp->device_cnt].id            = p_dxl->packet.id;
-        p_resp->p_device[p_resp->device_cnt].model_number  = p_dxl->packet.param[0] << 0;
-        p_resp->p_device[p_resp->device_cnt].model_number |= p_dxl->packet.param[1] << 8;
-        p_resp->p_device[p_resp->device_cnt].firm_version  = p_dxl->packet.param[2];
+        p_inst->p_resp[p_inst->resp_cnt].id            = p_dxl->packet.id;
+        p_inst->p_resp[p_inst->resp_cnt].model_number  = p_dxl->packet.param[0] << 0;
+        p_inst->p_resp[p_inst->resp_cnt].model_number |= p_dxl->packet.param[1] << 8;
+        p_inst->p_resp[p_inst->resp_cnt].firm_version  = p_dxl->packet.param[2];
 
-        p_resp->device_cnt++;
-        if (p_resp->device_cnt >= max_cnt)
+        p_inst->resp_cnt++;
+        if (p_inst->resp_cnt >= max_cnt)
         {
           break;
         }
@@ -455,7 +455,7 @@ bool dxlInstPing(dxl_t *p_dxl, uint8_t id, dxl_ping_resp_t *p_resp, uint32_t tim
     }
   }
 
-  if (p_resp->device_cnt > 0)
+  if (p_inst->resp_cnt > 0)
   {
     ret = true;
   }
@@ -532,6 +532,81 @@ bool dxlInstWrite(dxl_t *p_dxl, uint8_t id, uint16_t addr, uint8_t *p_data, uint
   return ret;
 }
 
+bool dxlInstSyncRead(dxl_t *p_dxl, dxl_sync_read_t *p_inst, uint32_t timeout)
+{
+  bool ret;
+  uint8_t id;
+  uint16_t index;
+  uint32_t pre_time;
+  uint16_t resp_max_cnt;
+  uint16_t resp_size;
+  dxl_sync_read_resp_t *p_resp;
+
+  id = DXL_BROADCAST_ID;
+
+
+  resp_max_cnt = p_inst->param.id_cnt;
+  resp_size = sizeof(dxl_sync_read_resp_t) + p_inst->param.length;
+
+  if (resp_size*resp_max_cnt >= DXL_PACKET_BUF_MAX)
+  {
+    return false;
+  }
+
+  p_inst->resp_cnt = 0;
+
+  index = 0;
+  p_inst->buf[index++] = (p_inst->param.addr >> 0) & 0xFF;
+  p_inst->buf[index++] = (p_inst->param.addr >> 8) & 0xFF;
+  p_inst->buf[index++] = (p_inst->param.length >> 0) & 0xFF;
+  p_inst->buf[index++] = (p_inst->param.length >> 8) & 0xFF;
+
+  for (int i=0; i<p_inst->param.id_cnt; i++)
+  {
+    p_inst->buf[index++] = p_inst->param.id[i];
+  }
+
+
+  ret = dxlSendInst(p_dxl, id, DXL_INST_SYNC_READ, p_inst->buf, index);
+  if (ret == true)
+  {
+    pre_time = millis();
+    while(millis()-pre_time < timeout)
+    {
+      ret = dxlReceivePacket(p_dxl);
+      if (ret == true)
+      {
+        p_resp = &p_inst->resp[p_inst->resp_cnt];
+        p_resp->p_data = &p_inst->buf[p_inst->resp_cnt * resp_size];
+
+
+        p_resp->id     = p_dxl->packet.id;
+        p_resp->addr   = p_inst->param.addr;
+        p_resp->length = p_inst->param.length;
+        for (int i=0; i<p_resp->length; i++)
+        {
+          p_resp->p_data[i] = p_dxl->packet.param[i];
+        }
+
+        p_inst->resp_cnt++;
+        if (p_inst->resp_cnt >= resp_max_cnt)
+        {
+          break;
+        }
+        pre_time = millis();
+      }
+    }
+  }
+
+  if (p_inst->resp_cnt == resp_max_cnt)
+  {
+    ret = true;
+  }
+
+  return ret;
+
+}
+
 
 #ifdef _USE_HW_CLI
 
@@ -561,7 +636,7 @@ static void cliDxl(cli_args_t *args)
   {
     uint8_t dxl_id;
     uint8_t dxl_ret;
-    dxl_ping_resp_t ping_resp;
+    dxl_ping_t ping_resp;
 
     if (args->argc == 2)
     {
@@ -579,11 +654,11 @@ static void cliDxl(cli_args_t *args)
     {
       cliPrintf("%d ms\n", exe_time);
 
-      for (int i=0; i<ping_resp.device_cnt; i++)
+      for (int i=0; i<ping_resp.resp_cnt; i++)
       {
-        cliPrintf("ID : %d\n", ping_resp.p_device[i].id);
-        cliPrintf("   Model Number : 0x%X(%d)\n", ping_resp.p_device[i].model_number, ping_resp.p_device[i].model_number);
-        cliPrintf("   Firm Version : 0x%X(%d)\n", ping_resp.p_device[i].firm_version, ping_resp.p_device[i].firm_version);
+        cliPrintf("ID : %d\n", ping_resp.p_resp[i].id);
+        cliPrintf("   Model Number : 0x%X(%d)\n", ping_resp.p_resp[i].model_number, ping_resp.p_resp[i].model_number);
+        cliPrintf("   Firm Version : 0x%X(%d)\n", ping_resp.p_resp[i].firm_version, ping_resp.p_resp[i].firm_version);
       }
     }
     else
@@ -677,12 +752,60 @@ static void cliDxl(cli_args_t *args)
 
     ret = true;
   }
+
+  if (args->argc >= 4 && args->isStr(0, "sync_read"))
+  {
+    uint8_t dxl_ret;
+    uint8_t id_cnt;
+    dxl_sync_read_t sync_read;
+
+
+    id_cnt = args->argc - 3;
+    sync_read.param.id_cnt = id_cnt;
+    sync_read.param.addr   = (uint16_t)args->getData(1);
+    sync_read.param.length = (uint16_t)args->getData(2);
+    for (int i=0; i<id_cnt; i++)
+    {
+      sync_read.param.id[i] = (uint8_t)args->getData(3+i);
+    }
+
+
+    pre_time = millis();
+    dxl_ret = dxlInstSyncRead(&cli_dxl, &sync_read, 100);
+    exe_time = millis()-pre_time;
+    if (dxl_ret == true)
+    {
+      cliPrintf("%d ms\n", exe_time);
+
+      for (int i=0; i<sync_read.resp_cnt; i++)
+      {
+        cliPrintf("ID : %d\n", sync_read.resp[i].id);
+        for (int j=0; j<sync_read.resp[i].length; j++)
+        {
+          cliPrintf("   data[%d] : 0x%X(%d)\n",
+                    j,
+                    sync_read.resp[i].p_data[j],
+                    sync_read.resp[i].p_data[j]
+                    );
+        }
+      }
+    }
+    else
+    {
+      cliPrintf("dxlInstSyncRead Fail : 0x%X\n", cli_dxl.packet.err);
+    }
+
+    ret = true;
+  }
+
+
   if (ret == false)
   {
     cliPrintf("dxl open baud\n");
     cliPrintf("dxl ping id\n");
     cliPrintf("dxl read id addr len\n");
     cliPrintf("dxl write id addr data len(~4)\n");
+    cliPrintf("dxl sync_read addr len id1 id2 ...\n");
     cliPrintf("dxl led_test id\n");
   }
 }
