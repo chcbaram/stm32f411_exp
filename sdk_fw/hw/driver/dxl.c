@@ -96,6 +96,11 @@ bool dxlOpen(dxl_t *p_dxl, uint8_t dxl_ch, uint32_t baud)
   return ret;
 }
 
+bool dxlIsOpen(dxl_t *p_dxl)
+{
+  return p_dxl->is_open;
+}
+
 bool dxlClose(dxl_t *p_dxl)
 {
   bool ret = true;
@@ -111,6 +116,12 @@ bool dxlSendInst(dxl_t *p_dxl, uint8_t id,  uint8_t inst, uint8_t *p_param, uint
   uint16_t crc = 0;
   uint16_t index;
   uint32_t  stuff_header;
+
+
+  if (p_dxl->is_open != true)
+  {
+    return false;
+  }
 
   packet_len = param_len + 3;
 
@@ -171,6 +182,11 @@ bool dxlReceivePacket(dxl_t *p_dxl)
   uint16_t crc;
   uint16_t index;
 
+
+  if (p_dxl->is_open != true)
+  {
+    return false;
+  }
 
   if (p_dxl->driver.available(p_dxl->ch) > 0)
   {
@@ -420,15 +436,10 @@ bool dxlInstPing(dxl_t *p_dxl, uint8_t id, dxl_ping_t *p_inst, uint32_t timeout)
 
   if (id == DXL_BROADCAST_ID)
   {
-    max_cnt = (sizeof(p_inst->buf) - 11) / sizeof(dxl_ping_resp_t);
-    if (max_cnt > 253)
-    {
-      max_cnt = 253;
-    }
+    max_cnt = DXL_DEVICE_CNT_MAX;
   }
 
-  p_inst->resp_cnt = 0;
-  p_inst->p_resp = (dxl_ping_resp_t *)p_inst->buf;
+  p_inst->resp.id_cnt = 0;
 
 
   ret = dxlSendInst(p_dxl, id, DXL_INST_PING, NULL, 0);
@@ -440,13 +451,13 @@ bool dxlInstPing(dxl_t *p_dxl, uint8_t id, dxl_ping_t *p_inst, uint32_t timeout)
       ret = dxlReceivePacket(p_dxl);
       if (ret == true)
       {
-        p_inst->p_resp[p_inst->resp_cnt].id            = p_dxl->packet.id;
-        p_inst->p_resp[p_inst->resp_cnt].model_number  = p_dxl->packet.param[0] << 0;
-        p_inst->p_resp[p_inst->resp_cnt].model_number |= p_dxl->packet.param[1] << 8;
-        p_inst->p_resp[p_inst->resp_cnt].firm_version  = p_dxl->packet.param[2];
+        p_inst->resp.node[p_inst->resp.id_cnt].id            = p_dxl->packet.id;
+        p_inst->resp.node[p_inst->resp.id_cnt].model_number  = p_dxl->packet.param[0] << 0;
+        p_inst->resp.node[p_inst->resp.id_cnt].model_number |= p_dxl->packet.param[1] << 8;
+        p_inst->resp.node[p_inst->resp.id_cnt].firm_version  = p_dxl->packet.param[2];
 
-        p_inst->resp_cnt++;
-        if (p_inst->resp_cnt >= max_cnt)
+        p_inst->resp.id_cnt++;
+        if (p_inst->resp.id_cnt >= max_cnt)
         {
           break;
         }
@@ -455,7 +466,7 @@ bool dxlInstPing(dxl_t *p_dxl, uint8_t id, dxl_ping_t *p_inst, uint32_t timeout)
     }
   }
 
-  if (p_inst->resp_cnt > 0)
+  if (p_inst->resp.id_cnt > 0)
   {
     ret = true;
   }
@@ -539,35 +550,32 @@ bool dxlInstSyncRead(dxl_t *p_dxl, dxl_sync_read_t *p_inst, uint32_t timeout)
   uint16_t index;
   uint32_t pre_time;
   uint16_t resp_max_cnt;
-  uint16_t resp_size;
-  dxl_sync_read_resp_t *p_resp;
+  uint16_t param_addr;
+  uint16_t param_length;
+
+  dxl_sync_read_node_t *p_node;
 
   id = DXL_BROADCAST_ID;
 
 
+  param_addr   = p_inst->param.addr;
+  param_length = p_inst->param.length;
   resp_max_cnt = p_inst->param.id_cnt;
-  resp_size = sizeof(dxl_sync_read_resp_t) + p_inst->param.length;
-
-  if (resp_size*resp_max_cnt >= DXL_PACKET_BUF_MAX)
-  {
-    return false;
-  }
-
-  p_inst->resp_cnt = 0;
 
   index = 0;
-  p_inst->buf[index++] = (p_inst->param.addr >> 0) & 0xFF;
-  p_inst->buf[index++] = (p_inst->param.addr >> 8) & 0xFF;
-  p_inst->buf[index++] = (p_inst->param.length >> 0) & 0xFF;
-  p_inst->buf[index++] = (p_inst->param.length >> 8) & 0xFF;
+  p_dxl->inst_buf[index++] = (p_inst->param.addr >> 0) & 0xFF;
+  p_dxl->inst_buf[index++] = (p_inst->param.addr >> 8) & 0xFF;
+  p_dxl->inst_buf[index++] = (p_inst->param.length >> 0) & 0xFF;
+  p_dxl->inst_buf[index++] = (p_inst->param.length >> 8) & 0xFF;
 
   for (int i=0; i<p_inst->param.id_cnt; i++)
   {
-    p_inst->buf[index++] = p_inst->param.id[i];
+    p_dxl->inst_buf[index++] = p_inst->param.id[i];
   }
 
 
-  ret = dxlSendInst(p_dxl, id, DXL_INST_SYNC_READ, p_inst->buf, index);
+  p_inst->resp.id_cnt = 0;
+  ret = dxlSendInst(p_dxl, id, DXL_INST_SYNC_READ, p_dxl->inst_buf, index);
   if (ret == true)
   {
     pre_time = millis();
@@ -576,20 +584,18 @@ bool dxlInstSyncRead(dxl_t *p_dxl, dxl_sync_read_t *p_inst, uint32_t timeout)
       ret = dxlReceivePacket(p_dxl);
       if (ret == true)
       {
-        p_resp = &p_inst->resp[p_inst->resp_cnt];
-        p_resp->p_data = &p_inst->buf[p_inst->resp_cnt * resp_size];
+        p_node = &p_inst->resp.node[p_inst->resp.id_cnt];
 
-
-        p_resp->id     = p_dxl->packet.id;
-        p_resp->addr   = p_inst->param.addr;
-        p_resp->length = p_inst->param.length;
-        for (int i=0; i<p_resp->length; i++)
+        p_node->id     = p_dxl->packet.id;
+        p_node->addr   = param_addr;
+        p_node->length = param_length;
+        for (int i=0; i<p_node->length; i++)
         {
-          p_resp->p_data[i] = p_dxl->packet.param[i];
+          p_node->data[i] = p_dxl->packet.param[i];
         }
 
-        p_inst->resp_cnt++;
-        if (p_inst->resp_cnt >= resp_max_cnt)
+        p_inst->resp.id_cnt++;
+        if (p_inst->resp.id_cnt >= resp_max_cnt)
         {
           break;
         }
@@ -598,13 +604,43 @@ bool dxlInstSyncRead(dxl_t *p_dxl, dxl_sync_read_t *p_inst, uint32_t timeout)
     }
   }
 
-  if (p_inst->resp_cnt == resp_max_cnt)
+  if (p_inst->resp.id_cnt == resp_max_cnt)
   {
     ret = true;
   }
 
   return ret;
 
+}
+
+bool dxlInstSyncWrite(dxl_t *p_dxl, dxl_sync_write_t *p_inst, uint32_t timeout)
+{
+  bool ret;
+  uint8_t id;
+  uint16_t index;
+
+  id = DXL_BROADCAST_ID;
+
+
+  index = 0;
+  p_dxl->inst_buf[index++] = (p_inst->param.addr >> 0) & 0xFF;
+  p_dxl->inst_buf[index++] = (p_inst->param.addr >> 8) & 0xFF;
+  p_dxl->inst_buf[index++] = (p_inst->param.length >> 0) & 0xFF;
+  p_dxl->inst_buf[index++] = (p_inst->param.length >> 8) & 0xFF;
+
+  for (int i=0; i<p_inst->param.id_cnt; i++)
+  {
+    p_dxl->inst_buf[index++] = p_inst->param.node[i].id;
+
+    for (int j=0; j<p_inst->param.length; j++)
+    {
+      p_dxl->inst_buf[index++] = p_inst->param.node[i].data[j];
+    }
+  }
+
+  ret = dxlSendInst(p_dxl, id, DXL_INST_SYNC_WRITE, p_dxl->inst_buf, index);
+
+  return ret;
 }
 
 
@@ -617,6 +653,7 @@ static void cliDxl(cli_args_t *args)
   bool ret = false;
   uint32_t pre_time;
   uint32_t exe_time;
+  dxl_inst_t dxl_inst;
 
 
   if (args->argc == 2 && args->isStr(0, "open"))
@@ -636,7 +673,15 @@ static void cliDxl(cli_args_t *args)
   {
     uint8_t dxl_id;
     uint8_t dxl_ret;
-    dxl_ping_t ping_resp;
+    dxl_ping_t *p_ping;
+
+    if (dxlIsOpen(&cli_dxl) != true)
+    {
+      cliPrintf("dxl port not open\n");
+      return;
+    }
+
+    p_ping = &dxl_inst.ping;
 
     if (args->argc == 2)
     {
@@ -648,17 +693,17 @@ static void cliDxl(cli_args_t *args)
     }
 
     pre_time = millis();
-    dxl_ret = dxlInstPing(&cli_dxl, dxl_id, &ping_resp, 100);
+    dxl_ret = dxlInstPing(&cli_dxl, dxl_id, p_ping, 100);
     exe_time = millis()-pre_time;
     if (dxl_ret == true)
     {
       cliPrintf("%d ms\n", exe_time);
 
-      for (int i=0; i<ping_resp.resp_cnt; i++)
+      for (int i=0; i<p_ping->resp.id_cnt; i++)
       {
-        cliPrintf("ID : %d\n", ping_resp.p_resp[i].id);
-        cliPrintf("   Model Number : 0x%X(%d)\n", ping_resp.p_resp[i].model_number, ping_resp.p_resp[i].model_number);
-        cliPrintf("   Firm Version : 0x%X(%d)\n", ping_resp.p_resp[i].firm_version, ping_resp.p_resp[i].firm_version);
+        cliPrintf("ID : %d\n", dxl_inst.ping.resp.node[i].id);
+        cliPrintf("   Model Number : 0x%X(%d)\n", p_ping->resp.node[i].model_number, p_ping->resp.node[i].model_number);
+        cliPrintf("   Firm Version : 0x%X(%d)\n", p_ping->resp.node[i].firm_version, p_ping->resp.node[i].firm_version);
       }
     }
     else
@@ -675,6 +720,13 @@ static void cliDxl(cli_args_t *args)
     uint16_t dxl_addr;
     uint16_t dxl_len;
     uint8_t  dxl_ret;
+
+
+    if (dxlIsOpen(&cli_dxl) != true)
+    {
+      cliPrintf("dxl port not open\n");
+      return;
+    }
 
     dxl_id   = (uint8_t)args->getData(1);
     dxl_addr = (uint8_t)args->getData(2);
@@ -708,6 +760,13 @@ static void cliDxl(cli_args_t *args)
     uint8_t  dxl_ret;
     uint32_t dxl_data;
 
+
+    if (dxlIsOpen(&cli_dxl) != true)
+    {
+      cliPrintf("dxl port not open\n");
+      return;
+    }
+
     dxl_id   = (uint8_t)args->getData(1);
     dxl_addr = (uint8_t)args->getData(2);
     dxl_data = (uint8_t)args->getData(3);
@@ -729,11 +788,17 @@ static void cliDxl(cli_args_t *args)
     ret = true;
   }
 
-  if (args->argc == 2 && args->isStr(0, "led_test"))
+  if (args->argc == 2 && args->isStr(0, "test_led"))
   {
     uint8_t dxl_id;
     uint8_t dxl_data;
     bool dxl_ret;
+
+    if (dxlIsOpen(&cli_dxl) != true)
+    {
+      cliPrintf("dxl port not open\n");
+      return;
+    }
 
     dxl_id = args->getData(1);
 
@@ -760,6 +825,12 @@ static void cliDxl(cli_args_t *args)
     dxl_sync_read_t sync_read;
 
 
+    if (dxlIsOpen(&cli_dxl) != true)
+    {
+      cliPrintf("dxl port not open\n");
+      return;
+    }
+
     id_cnt = args->argc - 3;
     sync_read.param.id_cnt = id_cnt;
     sync_read.param.addr   = (uint16_t)args->getData(1);
@@ -777,15 +848,15 @@ static void cliDxl(cli_args_t *args)
     {
       cliPrintf("%d ms\n", exe_time);
 
-      for (int i=0; i<sync_read.resp_cnt; i++)
+      for (int i=0; i<sync_read.resp.id_cnt; i++)
       {
-        cliPrintf("ID : %d\n", sync_read.resp[i].id);
-        for (int j=0; j<sync_read.resp[i].length; j++)
+        cliPrintf("ID : %d\n", sync_read.resp.node[i].id);
+        for (int j=0; j<sync_read.resp.node[i].length; j++)
         {
           cliPrintf("   data[%d] : 0x%X(%d)\n",
                     j,
-                    sync_read.resp[i].p_data[j],
-                    sync_read.resp[i].p_data[j]
+                    sync_read.resp.node[i].data[j],
+                    sync_read.resp.node[i].data[j]
                     );
         }
       }
@@ -798,6 +869,139 @@ static void cliDxl(cli_args_t *args)
     ret = true;
   }
 
+  if (args->argc >= 5 && args->isStr(0, "sync_write"))
+  {
+    uint8_t dxl_ret;
+    uint8_t id_cnt;
+    int32_t data;
+    dxl_sync_write_t sync_write;
+
+
+    if (dxlIsOpen(&cli_dxl) != true)
+    {
+      cliPrintf("dxl port not open\n");
+      return;
+    }
+
+    id_cnt = args->argc - 4;
+    sync_write.param.id_cnt = id_cnt;
+    sync_write.param.addr   = (uint16_t)args->getData(1);
+    sync_write.param.length = (uint16_t)args->getData(2);
+    data                    = (uint32_t)args->getData(3);
+
+    if (sync_write.param.length > 4)
+    {
+      sync_write.param.length = 4;
+    }
+
+    for (int id_i=0; id_i<id_cnt; id_i++)
+    {
+      sync_write.param.node[id_i].id = (uint8_t)args->getData(4+id_i);
+
+      uint8_t *p_data;
+
+      p_data = (uint8_t *)&data;
+      for (int j=0; j<sync_write.param.length; j++)
+      {
+        sync_write.param.node[id_i].data[j] = p_data[j];
+      }
+    }
+
+    pre_time = millis();
+    dxl_ret = dxlInstSyncWrite(&cli_dxl, &sync_write, 100);
+    exe_time = millis()-pre_time;
+    if (dxl_ret == true)
+    {
+      cliPrintf("%d ms\n", exe_time);
+    }
+    else
+    {
+      cliPrintf("dxlInstSyncWrite Fail \n");
+    }
+
+    ret = true;
+  }
+
+  if (args->argc == 3 && args->isStr(0, "test_motor"))
+  {
+    //uint8_t dxl_ret;
+    uint8_t id_l;
+    uint8_t id_r;
+    uint32_t pre_time;
+    int32_t  vel_l;
+    int32_t  vel_r;
+
+    id_l = args->getData(1);
+    id_r = args->getData(2);
+
+    vel_l = 0;
+    vel_r = 0;
+
+    // Torque On
+    dxl_inst.sync_write.param.id_cnt = 2;
+    dxl_inst.sync_write.param.addr   = 64;
+    dxl_inst.sync_write.param.length = 1;
+    dxl_inst.sync_write.param.node[0].id = id_l;
+    dxl_inst.sync_write.param.node[0].data[0] = 1;
+    dxl_inst.sync_write.param.node[1].id = id_r;
+    dxl_inst.sync_write.param.node[1].data[0] = 1;
+    dxlInstSyncWrite(&cli_dxl, &dxl_inst.sync_write, 100);
+
+
+    pre_time = millis();
+    while(1)
+    {
+      if (millis()-pre_time >= 100)
+      {
+        pre_time = millis();
+
+        dxl_inst.sync_write.param.id_cnt = 2;
+        dxl_inst.sync_write.param.addr   = 104;
+        dxl_inst.sync_write.param.length = 4;
+        dxl_inst.sync_write.param.node[0].id = id_l;
+        dxl_inst.sync_write.param.node[0].data[0] = (uint8_t)(vel_l>>0);
+        dxl_inst.sync_write.param.node[0].data[1] = (uint8_t)(vel_l>>8);
+        dxl_inst.sync_write.param.node[0].data[2] = (uint8_t)(vel_l>>16);
+        dxl_inst.sync_write.param.node[0].data[3] = (uint8_t)(vel_l>>24);
+        dxl_inst.sync_write.param.node[1].id = id_r;
+        dxl_inst.sync_write.param.node[1].data[0] = (uint8_t)(vel_r>>0);
+        dxl_inst.sync_write.param.node[1].data[1] = (uint8_t)(vel_r>>8);
+        dxl_inst.sync_write.param.node[1].data[2] = (uint8_t)(vel_r>>16);
+        dxl_inst.sync_write.param.node[1].data[3] = (uint8_t)(vel_r>>24);
+
+        dxlInstSyncWrite(&cli_dxl, &dxl_inst.sync_write, 100);
+      }
+
+
+      if (cliAvailable() > 0)
+      {
+        uint8_t rx_data;
+
+        rx_data = cliRead();
+
+        if (rx_data == 'q')
+        {
+          break;
+        }
+
+        if (rx_data == '1')
+        {
+          vel_l = 100;
+          vel_r = 100;
+        }
+        if (rx_data == '2')
+        {
+          vel_l = -100;
+          vel_r = -100;
+        }
+        if (rx_data == '3')
+        {
+          vel_l = 0;
+          vel_r = 0;
+        }
+      }
+    }
+  }
 
   if (ret == false)
   {
@@ -806,7 +1010,10 @@ static void cliDxl(cli_args_t *args)
     cliPrintf("dxl read id addr len\n");
     cliPrintf("dxl write id addr data len(~4)\n");
     cliPrintf("dxl sync_read addr len id1 id2 ...\n");
-    cliPrintf("dxl led_test id\n");
+    cliPrintf("dxl sync_write addr len data id1 id2 ...\n");
+
+    cliPrintf("dxl test_led id\n");
+    cliPrintf("dxl test_motor id_l id_r\n");
   }
 }
 #endif
