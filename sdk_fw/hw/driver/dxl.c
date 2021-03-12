@@ -938,13 +938,17 @@ static void cliDxl(cli_args_t *args)
     vel_r = 0;
 
     // Torque On
-    dxl_inst.sync_write.param.id_cnt = 2;
+    dxl_inst.sync_write.param.id_cnt = 4;
     dxl_inst.sync_write.param.addr   = 64;
     dxl_inst.sync_write.param.length = 1;
     dxl_inst.sync_write.param.node[0].id = id_l;
     dxl_inst.sync_write.param.node[0].data[0] = 1;
     dxl_inst.sync_write.param.node[1].id = id_r;
     dxl_inst.sync_write.param.node[1].data[0] = 1;
+    dxl_inst.sync_write.param.node[2].id = 3;
+    dxl_inst.sync_write.param.node[2].data[0] = 1;
+    dxl_inst.sync_write.param.node[3].id = 4;
+    dxl_inst.sync_write.param.node[3].data[0] = 1;
     dxlInstSyncWrite(&cli_dxl, &dxl_inst.sync_write, 100);
 
 
@@ -955,7 +959,7 @@ static void cliDxl(cli_args_t *args)
       {
         pre_time = millis();
 
-        dxl_inst.sync_write.param.id_cnt = 2;
+        dxl_inst.sync_write.param.id_cnt = 4;
         dxl_inst.sync_write.param.addr   = 104;
         dxl_inst.sync_write.param.length = 4;
         dxl_inst.sync_write.param.node[0].id = id_l;
@@ -968,6 +972,16 @@ static void cliDxl(cli_args_t *args)
         dxl_inst.sync_write.param.node[1].data[1] = (uint8_t)(vel_r>>8);
         dxl_inst.sync_write.param.node[1].data[2] = (uint8_t)(vel_r>>16);
         dxl_inst.sync_write.param.node[1].data[3] = (uint8_t)(vel_r>>24);
+        dxl_inst.sync_write.param.node[2].id = 3;
+        dxl_inst.sync_write.param.node[2].data[0] = (uint8_t)(vel_l>>0);
+        dxl_inst.sync_write.param.node[2].data[1] = (uint8_t)(vel_l>>8);
+        dxl_inst.sync_write.param.node[2].data[2] = (uint8_t)(vel_l>>16);
+        dxl_inst.sync_write.param.node[2].data[3] = (uint8_t)(vel_l>>24);
+        dxl_inst.sync_write.param.node[3].id = 4;
+        dxl_inst.sync_write.param.node[3].data[0] = (uint8_t)(vel_r>>0);
+        dxl_inst.sync_write.param.node[3].data[1] = (uint8_t)(vel_r>>8);
+        dxl_inst.sync_write.param.node[3].data[2] = (uint8_t)(vel_r>>16);
+        dxl_inst.sync_write.param.node[3].data[3] = (uint8_t)(vel_r>>24);
 
         dxlInstSyncWrite(&cli_dxl, &dxl_inst.sync_write, 100);
       }
@@ -978,23 +992,38 @@ static void cliDxl(cli_args_t *args)
         uint8_t rx_data;
 
         rx_data = cliRead();
+        cliPrintf("0x%X\n", rx_data);
 
         if (rx_data == 'q')
         {
           break;
         }
+        if (rx_data == 0x1B || rx_data == 0x5B)
+        {
+          continue;
+        }
 
-        if (rx_data == '1')
+        if (rx_data == 0x41)
         {
-          vel_l = 100;
-          vel_r = 100;
+          vel_l = 150;
+          vel_r = 150;
         }
-        if (rx_data == '2')
+        else if (rx_data == 0x42)
         {
-          vel_l = -100;
-          vel_r = -100;
+          vel_l = -150;
+          vel_r = -150;
         }
-        if (rx_data == '3')
+        else if (rx_data == 0x44)
+        {
+          vel_l = -150;
+          vel_r =  150;
+        }
+        else if (rx_data == 0x43)
+        {
+          vel_l =  150;
+          vel_r = -150;
+        }
+        else
         {
           vel_l = 0;
           vel_r = 0;
