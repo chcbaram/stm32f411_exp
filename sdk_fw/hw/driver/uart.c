@@ -180,6 +180,23 @@ uint32_t uartAvailable(uint8_t ch)
   return ret;
 }
 
+bool uartFlush(uint8_t ch)
+{
+  uint32_t pre_time;
+
+  pre_time = millis();
+  while(uartAvailable(ch))
+  {
+    if (millis()-pre_time >= 10)
+    {
+      break;
+    }
+    uartRead(ch);
+  }
+
+  return true;
+}
+
 uint8_t uartRead(uint8_t ch)
 {
   uint8_t ret = 0;
