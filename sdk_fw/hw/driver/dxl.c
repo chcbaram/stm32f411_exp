@@ -46,7 +46,7 @@ enum
 static bool dxlSendInst(dxl_t *p_dxl, uint8_t id,  uint8_t inst, uint8_t *p_param, uint16_t param_len);
 static bool dxlReceivePacket(dxl_t *p_dxl);
 static uint16_t dxlUpdateCrc(uint16_t crc_accum, uint8_t *data_blk_ptr, uint16_t data_blk_size);
-
+static bool dxlProcessPacket(dxl_t *p_dxl, uint8_t rx_data);
 
 
 
@@ -179,8 +179,7 @@ bool dxlReceivePacket(dxl_t *p_dxl)
 {
   bool ret = false;
   uint8_t rx_data;
-  uint16_t crc;
-  uint16_t index;
+  uint32_t pre_time;
 
 
   if (p_dxl->is_open != true)
@@ -188,14 +187,31 @@ bool dxlReceivePacket(dxl_t *p_dxl)
     return false;
   }
 
-  if (p_dxl->driver.available(p_dxl->ch) > 0)
+  pre_time = millis();
+  while(p_dxl->driver.available(p_dxl->ch) > 0)
   {
     rx_data = p_dxl->driver.read(p_dxl->ch);
+    ret = dxlProcessPacket(p_dxl, rx_data);
+    if (ret == true)
+    {
+      break;
+    }
+
+    if (millis()-pre_time >= 50)
+    {
+      break;
+    }
   }
-  else
-  {
-    return false;
-  }
+
+  return ret;
+}
+
+bool dxlProcessPacket(dxl_t *p_dxl, uint8_t rx_data)
+{
+  bool ret = false;
+  uint16_t crc;
+  uint16_t index;
+
 
   if (millis()-p_dxl->pre_time >= 100)
   {
