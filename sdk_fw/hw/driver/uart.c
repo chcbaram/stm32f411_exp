@@ -230,12 +230,10 @@ uint32_t uartWrite(uint8_t ch, uint8_t *p_data, uint32_t length)
 
 #if UART_MAX_CH > 1
     case _DEF_UART2:
-      HAL_HalfDuplex_EnableTransmitter(uart_tbl[ch].p_huart);
       if (HAL_UART_Transmit(uart_tbl[ch].p_huart, p_data, length, 100) == HAL_OK)
       {
         ret = length;
       }
-      HAL_HalfDuplex_EnableReceiver(uart_tbl[ch].p_huart);
       break;
 
     case _DEF_UART3:
