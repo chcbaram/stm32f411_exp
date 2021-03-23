@@ -89,7 +89,7 @@ bool uartOpen(uint8_t ch, uint32_t baud)
 
       __HAL_RCC_DMA1_CLK_ENABLE();
 
-      if (HAL_HalfDuplex_Init(&huart1) != HAL_OK)
+      if (HAL_UART_Init(&huart1) != HAL_OK)
       {
         ret = false;
       }
@@ -327,13 +327,22 @@ void HAL_UART_MspInit(UART_HandleTypeDef* uartHandle)
     /* USART1 clock enable */
     __HAL_RCC_USART1_CLK_ENABLE();
 
+    __HAL_RCC_GPIOA_CLK_ENABLE();
     __HAL_RCC_GPIOB_CLK_ENABLE();
     /**USART1 GPIO Configuration
+    PA10     ------> USART1_RX
     PB6     ------> USART1_TX
     */
+    GPIO_InitStruct.Pin = GPIO_PIN_10;
+    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+    GPIO_InitStruct.Alternate = GPIO_AF7_USART1;
+    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
     GPIO_InitStruct.Pin = GPIO_PIN_6;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-    GPIO_InitStruct.Pull = GPIO_PULLUP;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
     GPIO_InitStruct.Alternate = GPIO_AF7_USART1;
     HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);

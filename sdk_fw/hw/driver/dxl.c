@@ -11,6 +11,7 @@
 #include "dxl/dxl_uart.h"
 
 
+#ifdef _USE_HW_DXL
 
 enum
 {
@@ -1275,4 +1276,7 @@ static void cliDxl(cli_args_t *args)
     cliPrintf("dxl test_motor id_l id_r\n");
   }
 }
+#endif
+
+
 #endif

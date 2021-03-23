@@ -10,6 +10,8 @@
 #include "uart.h"
 
 
+#ifdef _USE_HW_DXL
+
                               // _DEF_DXL1
 static const uint8_t dxl_ch_tbl[] = {_DEF_UART2};
 
@@ -130,3 +132,6 @@ bool flush(uint8_t dxl_ch)
 
   return ret;
 }
+
+
+#endif

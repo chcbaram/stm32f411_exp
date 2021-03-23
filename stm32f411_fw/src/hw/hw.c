@@ -65,5 +65,4 @@ void hwInit(void)
 
   usbBegin(USB_CDC_MODE);
   espInit();
-  dxlInit();
 }

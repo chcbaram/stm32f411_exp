@@ -31,7 +31,7 @@ void apInit(void)
   cliOpen(_DEF_UART1, 57600);   // USB
   cliAdd("boot", cliBoot);
 
-  uartOpen(_DEF_UART2, 57600);  // XL-330
+  uartOpen(_DEF_UART2, 57600);  // USART1
   uartOpen(_DEF_UART3, 115200); // ESP8266
 }
 
@@ -39,11 +39,6 @@ void apMain(void)
 {
   uint32_t pre_time;
   args_t args;
-  uint8_t  buf[128];
-  uint16_t buf_len;
-  uint32_t baud;
-
-  baud = uartGetBaud(_DEF_UART1);
 
 
   args.mode = 0;
@@ -59,47 +54,11 @@ void apMain(void)
       ledToggle(_DEF_LED1);
     }
 
-    if (args.mode == 0)
+    if (uartAvailable(_DEF_UART2) > 0)
     {
-      cliMain();
+      uartPrintf(_DEF_UART2, "Rx : 0x%x\n", uartRead(_DEF_UART2));
     }
-    else
-    {
-      if (baud != uartGetBaud(_DEF_UART1))
-      {
-        baud = uartGetBaud(_DEF_UART1);
-        uartOpen(_DEF_UART2, baud);
-      }
-
-      // USB -> XL-330
-      buf_len = uartAvailable(_DEF_UART1);
-      if (buf_len > 0)
-      {
-        if (buf_len > 128)
-        {
-          buf_len = 128;
-        }
-        for (int i=0; i<buf_len; i++)
-        {
-          buf[i] = uartRead(_DEF_UART1);
-        }
-        uartWrite(_DEF_UART2, &buf[0], buf_len);
-      }
-      // XL-330 -> USB
-      buf_len = uartAvailable(_DEF_UART2);
-      if (buf_len > 0)
-      {
-        if (buf_len > 128)
-        {
-          buf_len = 128;
-        }
-        for (int i=0; i<buf_len; i++)
-        {
-          buf[i] = uartRead(_DEF_UART2);
-        }
-        uartWrite(_DEF_UART1, &buf[0], buf_len);
-      }
-    }
+    cliMain();
 
     lcdMain(&args);
     sdMain(&args);
@@ -145,7 +104,7 @@ void lcdMain(args_t *p_args)
 
     if (p_args->mode == 1)
     {
-      lcdPrintfResize(0,16, green, 32, "U2D2 Mode");
+      lcdPrintfResize(0,16, green, 32, "Mode 1");
     }
 
 	  lcdRequestDraw();
