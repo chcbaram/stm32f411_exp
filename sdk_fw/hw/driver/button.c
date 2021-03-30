@@ -74,6 +74,63 @@ bool buttonGetPressed(uint8_t ch)
   return ret;
 }
 
+void buttonObjCreate(button_obj_t *p_obj, uint8_t ch, uint32_t repeat_time)
+{
+  p_obj->ch = ch;
+  p_obj->state = 0;
+  p_obj->pre_time = millis();
+  p_obj->repeat_time = repeat_time;
+}
+
+bool buttonObjGetClicked(button_obj_t *p_obj, uint32_t pressed_time)
+{
+  bool ret = false;
+
+
+  switch(p_obj->state)
+  {
+    case 0:
+      if (buttonGetPressed(p_obj->ch) == true)
+      {
+        p_obj->state = 1;
+        p_obj->pre_time = millis();
+      }
+      break;
+
+    case 1:
+      if (buttonGetPressed(p_obj->ch) == true)
+      {
+        if (millis()-p_obj->pre_time >= pressed_time)
+        {
+          ret = true; // 버튼 클릭됨
+          p_obj->state = 2;
+          p_obj->pre_time = millis();
+        }
+      }
+      else
+      {
+        p_obj->state = 0;
+      }
+      break;
+
+    case 2:
+      if (buttonGetPressed(p_obj->ch) == true)
+      {
+        if (millis()-p_obj->pre_time >= p_obj->repeat_time)
+        {
+          p_obj->state = 1;
+          p_obj->pre_time = millis();
+        }
+      }
+      else
+      {
+        p_obj->state = 0;
+      }
+      break;
+  }
+
+  return ret;
+}
 
 
 #ifdef _USE_HW_CLI

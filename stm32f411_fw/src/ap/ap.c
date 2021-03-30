@@ -40,10 +40,10 @@ void apMain(void)
   uint32_t pre_time;
   args_t args;
 
-
   args.mode = 0;
   args.x_time = 0;
   args.pre_time = millis();
+
 
   pre_time = millis();
   while(1)
