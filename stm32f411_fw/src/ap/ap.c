@@ -67,29 +67,29 @@ void apMain(void)
 
 void lcdMain(args_t *p_args)
 {
-	if (lcdIsInit() != true)
-	{
-	  return;
-	}
+  if (lcdIsInit() != true)
+  {
+    return;
+  }
 
-	if (millis()-p_args->pre_time >= (1000/30) && lcdDrawAvailable() == true)
-	{
-	  p_args->pre_time = millis();
+  if (millis()-p_args->pre_time >= (1000/30) && lcdDrawAvailable() == true)
+  {
+    p_args->pre_time = millis();
 
-	  lcdClearBuffer(black);
+    lcdClearBuffer(black);
 
-	  uint16_t x1 = 0;
-	  uint16_t x2 = 0;
+    uint16_t x1 = 0;
+    uint16_t x2 = 0;
 
 
-	  if (buttonGetPressed(_DEF_BUTTON1))
-	  {
-	    p_args->mode = (p_args->mode + 1)%2;
-	    delay(200);
-	  }
-	  if (p_args->mode == 0)
-	  {
-	    p_args->x_time += 2;
+    if (buttonGetPressed(_DEF_BUTTON1))
+    {
+      p_args->mode = (p_args->mode + 1)%2;
+      delay(200);
+    }
+    if (p_args->mode == 0)
+    {
+      p_args->x_time += 2;
 
       x1 = p_args->x_time;
       x1 %= (LCD_WIDTH-img_logo.header.w);;
@@ -100,14 +100,14 @@ void lcdMain(args_t *p_args)
 
       lcdDrawImage(x1, 0, &img_logo);
       lcdDrawImage(x2, 0, &img_logo2);
-	  }
+    }
 
     if (p_args->mode == 1)
     {
       lcdPrintfResize(0,16, green, 32, "Mode 1");
     }
 
-	  lcdRequestDraw();
+    lcdRequestDraw();
   }
 }
 

@@ -3,3 +3,5 @@ stm32f411_fw/Debug/
 stm32f411_fw/.settings/language.settings.xml
 stm32f411_boot/.settings/language.settings.xml
 sdk_fw/lib/cube_f411/.settings/language.settings.xml
+stm32f411_fw_azrtos/Debug/
+stm32f411_fw_azrtos/.settings/language.settings.xml
